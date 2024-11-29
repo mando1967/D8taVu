@@ -19,10 +19,7 @@ conda install conda-forge::wfastcgi
    - ISAPI Filters
    - Common HTTP Features
 2. Install URL Rewrite Module for IIS
-3. Enable wfastcgi (run as administrator):
-   ```bash
-   wfastcgi-enable
-   ```
+3. Run `enable_wfastcgi.bat` as administrator to enable wfastcgi for IIS
 4. Run `unlock_iis_sections.bat` as administrator to unlock necessary IIS configuration sections:
    - handlers section
    - FastCGI section
@@ -54,6 +51,7 @@ conda install conda-forge::wfastcgi
 - `requirements.txt`: Project dependencies
 - `install_iis_components.bat`: Script to install required IIS components
 - `unlock_iis_sections.bat`: Script to unlock IIS configuration sections
+- `enable_wfastcgi.bat`: Script to enable wfastcgi in IIS
 - `set_permissions.bat`: Script to set required permissions
 
 ### Working URLs
@@ -101,7 +99,8 @@ conda install conda-forge::wfastcgi
 4. Confirm permissions are set correctly using `set_permissions.bat`
 5. If configuration sections are locked, run `unlock_iis_sections.bat`
 6. If IIS components are missing, run `install_iis_components.bat`
-7. Restart IIS or the application after configuration changes
+7. If wfastcgi is not properly enabled, run `enable_wfastcgi.bat`
+8. Restart IIS or the application after configuration changes
 
 ## Security Considerations
 - Keep Conda environment isolated and dedicated to this application
