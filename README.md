@@ -1,82 +1,107 @@
 # D8TAVu Project
 
 ## Project Setup
-1. Create Anaconda environment:
+1. Create and configure Anaconda environment:
 ```bash
 conda create -n D8TAVu python=3.9
 conda activate D8TAVu
+conda install conda-forge::flask=2.3.3
+conda install conda-forge::werkzeug=2.3.7
+conda install conda-forge::wfastcgi
 ```
 
 ## IIS Configuration Requirements
 
 ### Prerequisites
-1. Install IIS with CGI module enabled
+1. Run `install_iis_components.bat` as administrator to install required IIS components:
+   - CGI
+   - ISAPI Extensions
+   - ISAPI Filters
+   - Common HTTP Features
 2. Install URL Rewrite Module for IIS
-3. Install Windows Configuration Platform (WFastCGI)
+3. Enable wfastcgi (run as administrator):
+   ```bash
+   wfastcgi-enable
+   ```
+4. Run `unlock_iis_sections.bat` as administrator to unlock necessary IIS configuration sections:
+   - handlers section
+   - FastCGI section
 
 ### IIS Configuration Steps
 
-1. **Install Required IIS Components:**
-   - World Wide Web Services > Application Development Features
-     - CGI
-     - ISAPI Extensions
-     - ISAPI Filters
-   - World Wide Web Services > Common HTTP Features (all)
+1. **Create Application Pool:**
+   - Name: "D8TAVu"
+   - .NET CLR version: "No Managed Code"
+   - Managed pipeline mode: "Integrated"
 
-2. **Install Python Dependencies:**
-   ```bash
-   conda activate D8TAVu
-   pip install wfastcgi
-   wfastcgi-enable
-   ```
+2. **Create Application:**
+   - Under Default Web Site, create application
+   - Alias: "D8TAVu"
+   - Application Pool: "D8TAVu"
+   - Physical Path: `[Project Directory Path]`
 
-3. **IIS Configuration Files:**
+3. **Set Permissions:**
+   Run `set_permissions.bat` as administrator to set:
+   - IIS_IUSRS and IUSR read access to Python environment
+   - Application Pool Identity full control of application directory
+   - Application Pool Identity read access to Python environment
 
-   #### web.config (to be placed in site root)
-   ```xml
-   <?xml version="1.0" encoding="UTF-8"?>
-   <configuration>
-       <system.webServer>
-           <handlers>
-               <add name="Python FastCGI"
-                    path="*"
-                    verb="*"
-                    modules="FastCgiModule"
-                    scriptProcessor="[Path to Python in Conda Env]\python.exe|[Path to wfastcgi.py in Conda Env]\wfastcgi.py"
-                    resourceType="Unspecified"
-                    requireAccess="Script" />
-           </handlers>
-           <fastCgi>
-               <application fullPath="[Path to Python in Conda Env]\python.exe"
-                           arguments="[Path to wfastcgi.py in Conda Env]\wfastcgi.py"
-                           maxInstances="4"
-                           idleTimeout="300" />
-           </fastCgi>
-       </system.webServer>
-       <appSettings>
-           <add key="PYTHONPATH" value="[Path to Your Application Root]" />
-           <add key="WSGI_HANDLER" value="app.app" />
-           <add key="WSGI_LOG" value="[Path to Log File]\wfastcgi.log" />
-       </appSettings>
-   </configuration>
-   ```
+## Application Structure
 
-4. **IIS Application Pool Configuration:**
-   - Create new Application Pool
-   - Set to "No Managed Code"
-   - Enable 32-bit applications if using 32-bit Python
-   - Identity: Set to a user with appropriate permissions
+### Key Files
+- `app.py`: Flask application with route handlers
+- `web.config`: IIS configuration for Python/Flask
+- `requirements.txt`: Project dependencies
+- `install_iis_components.bat`: Script to install required IIS components
+- `unlock_iis_sections.bat`: Script to unlock IIS configuration sections
+- `set_permissions.bat`: Script to set required permissions
 
-5. **File System Permissions:**
-   - Grant IIS_IUSRS and IUSR read access to Python installation
-   - Grant Application Pool Identity full control of application directory
+### Working URLs
+- Main application: `http://localhost/D8TAVu`
+- Health check: `http://localhost/D8TAVu/health`
 
-## Important Notes
-- Replace all `[Path...]` placeholders with actual paths from your system
-- Python path should point to the Python executable in the D8TAVu Conda environment
-- Application root path should point to where your WSGI application is located
-- Ensure all paths use escaped backslashes or forward slashes
-- Log file location must be writable by the Application Pool identity
+## Configuration Details
+
+### web.config
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <system.webServer>
+        <handlers>
+            <remove name="Python FastCGI" />
+            <add name="Python FastCGI"
+                 path="*"
+                 verb="*"
+                 modules="FastCgiModule"
+                 scriptProcessor="[Python Path]|[wfastcgi.py Path]"
+                 resourceType="Unspecified"
+                 requireAccess="Script" />
+        </handlers>
+        <fastCgi>
+            <application fullPath="[Python Path]"
+                        arguments="[wfastcgi.py Path]"
+                        maxInstances="4"
+                        idleTimeout="300">
+            </application>
+        </fastCgi>
+    </system.webServer>
+    <appSettings>
+        <add key="WSGI_HANDLER" value="app.app" />
+        <add key="PYTHONPATH" value="[Project Directory Path]" />
+        <add key="WSGI_LOG" value="[Project Directory Path]\wfastcgi.log" />
+        <add key="SCRIPT_NAME" value="/D8TAVu" />
+    </appSettings>
+</configuration>
+```
+
+## Troubleshooting
+1. Check wfastcgi.log in the project directory for errors
+2. Ensure all paths in web.config match your system
+3. Verify IIS Application Pool is running
+4. Confirm permissions are set correctly using `set_permissions.bat`
+5. If configuration sections are locked, run `unlock_iis_sections.bat`
+6. If IIS components are missing, run `install_iis_components.bat`
+7. Restart IIS or the application after configuration changes
 
 ## Security Considerations
 - Keep Conda environment isolated and dedicated to this application
