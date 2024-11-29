@@ -1,0 +1,3 @@
+wfastcgi==3.0.0
+Flask==2.3.3
+Werkzeug==2.3.7
