@@ -4,14 +4,17 @@ param(
     [switch]$CheckPermissionsOnly
 )
 
+# Get the root directory (one level up from scripts)
+$rootDir = Split-Path -Parent $PSScriptRoot
+
 # Create environment in web app directory
 $webAppPath = "C:\inetpub\wwwroot\D8TAVu"
-$envYamlPath = "c:\Users\a-gon\OneDrive\Documents\python\CascadeProjects\windsurf-project\D8TAVu\environment.yml"
+$envYamlPath = Join-Path $rootDir "environment.yml"
 $envPath = "$webAppPath\env"
 $user = "IIS APPPOOL\D8TAVu"
 
 # Source and destination paths for app files
-$sourceAppPath = "c:\Users\a-gon\OneDrive\Documents\python\CascadeProjects\windsurf-project\D8TAVu"
+$sourceAppPath = $rootDir
 $iisAppPath = "C:\inetpub\wwwroot\D8TAVu"
 
 # Function to verify permissions

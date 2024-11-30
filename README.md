@@ -8,37 +8,71 @@ A web application for visualizing stock market data using Flask, React, and yfin
 
 ## Setup and Configuration Scripts
 
+All setup and configuration scripts are located in the `scripts` directory:
+
+### IIS Setup Scripts (Run as Administrator)
+- `scripts/install_iis_components.bat`: Installs required IIS components and features
+- `scripts/unlock_iis_sections.bat`: Unlocks necessary IIS configuration sections
+- `scripts/enable_wfastcgi.bat`: Enables FastCGI support in IIS
+
 ### Environment Setup
-- `create_web_env.ps1`: Creates the Python virtual environment in the IIS web directory
-  - Sets up conda environment using environment.yml
-  - Installs all required Python packages
-  - Configures environment path for IIS
+- `scripts/create_web_env.ps1`: Creates and configures the Python virtual environment in IIS
+- `scripts/fix_permissions.ps1`: Fixes common permission issues with the site packages
+- `scripts/set_permissions.ps1`: Sets appropriate permissions for IIS and application directories
+- `scripts/restart_iis.ps1`: Safely restarts IIS and the application pool
 
-### Permission Management Scripts
-- `fix_permissions.ps1`: Comprehensive script to fix file access permissions
-  - Grants necessary permissions to IIS_IUSRS and NETWORK SERVICE
-  - Ensures proper access to Python environment and application files
-  - Run this if experiencing permission-related errors
+### Permission Management
+- `scripts/set_permissions.bat`: Sets initial permissions for IIS and Python directories
+  - Grants necessary permissions to IIS_IUSRS and AppPool
+  - Sets up access rights for the web and Python environment
+  - Run this after initial installation
 
-- `set_permissions.ps1`: Targeted script for specific directory permissions
-  - Use for fixing permissions on individual directories
-  - Helpful for troubleshooting specific access issues
+- `scripts/fix_permissions.ps1`: Advanced permission fixes
+  - Resolves complex permission issues
+  - Handles nested directory permissions
+  - Use when experiencing access denied errors
 
 ### IIS Management
-- `restart_iis.ps1`: PowerShell script to restart IIS and application pool
-  - Use when making configuration changes
-  - Helps resolve application pool issues
-  - Can be run with elevated privileges
+- `scripts/restart_iis.ps1`: PowerShell script to restart IIS and application pool
+  - Safely stops and starts services
+  - Resets application pool
+  - Use after configuration changes
 
-### Deployment Scripts
-- `copy_static_files.ps1`: Copies static assets to web directory
-  - Handles JavaScript, CSS, and image files
-  - Preserves file structure
+## Common Tasks
 
-- `setup_iis_env.ps1`: Initial IIS environment setup
-  - Configures application pool
-  - Sets up web.config
-  - Establishes FastCGI settings
+### Initial Setup
+1. Install IIS Components:
+   ```batch
+   .\scripts\install_iis_components.bat
+   ```
+
+2. Configure IIS:
+   ```batch
+   .\scripts\unlock_iis_sections.bat
+   .\scripts\enable_wfastcgi.bat
+   ```
+
+3. Set Up Environment:
+   ```powershell
+   .\scripts\create_web_env.ps1
+   ```
+
+4. Set Permissions:
+   ```batch
+   .\scripts\set_permissions.bat
+   ```
+
+### Troubleshooting
+
+1. Permission Issues:
+   ```powershell
+   .\scripts\fix_permissions.ps1
+   ```
+
+2. IIS Reset:
+   ```powershell
+   .\scripts\restart_iis.ps1
+   ```
 
 ## Common Issues and Solutions
 
@@ -46,20 +80,20 @@ A web application for visualizing stock market data using Flask, React, and yfin
 1. Environment Access:
    ```powershell
    # Run fix_permissions.ps1 with administrator privileges
-   .\fix_permissions.ps1
+   .\scripts\fix_permissions.ps1
    ```
 
 2. Site-specific Permissions:
    ```powershell
    # Use set_permissions.ps1 for targeted fixes
-   .\set_permissions.ps1 -path "path\to\directory" -user "IIS APPPOOL\D8TAVu"
+   .\scripts\set_permissions.ps1 -path "path\to\directory" -user "IIS APPPOOL\D8TAVu"
    ```
 
 ### IIS Configuration
 1. Application Pool Problems:
    ```powershell
    # Restart IIS and app pool
-   .\restart_iis.ps1
+   .\scripts\restart_iis.ps1
    ```
 
 2. Python Integration:
