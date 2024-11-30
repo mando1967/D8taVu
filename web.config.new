@@ -15,9 +15,5 @@
         <add key="PYTHONPATH" value="C:\inetpub\wwwroot\D8TAVu" />
         <add key="WSGI_HANDLER" value="app.app" />
         <add key="WSGI_LOG" value="C:\inetpub\wwwroot\D8TAVu\app.log" />
-        <add key="WSGI_RESTART_FILE_REGEX" value=".*((\.py)|(\.config))$" />
-        <add key="PYTHON_PATH" value="C:\inetpub\wwwroot\D8TAVu\env\python.exe"/>
-        <add key="WSGI_PTVSD_SECRET" value=""/>
-        <add key="WSGI_PTVSD_ADDRESS" value=""/>
     </appSettings>
 </configuration>
