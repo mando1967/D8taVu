@@ -5,3 +5,9 @@
 
 # After installation, enable wfastcgi:
 # wfastcgi-enable
+
+# Additional packages for stock data and plotting:
+# conda install conda-forge::yfinance
+# conda install conda-forge::matplotlib
+# conda install conda-forge::pandas
+# conda install conda-forge::python-dateutil

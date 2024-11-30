@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <system.webServer>
+        <handlers>
+            <remove name="Python FastCGI" />
+            <add name="Python FastCGI"
+                 path="*"
+                 verb="*"
+                 modules="FastCgiModule"
+                 scriptProcessor="C:\Users\a-gon\anaconda3\envs\D8TAVu\python.exe|C:\Users\a-gon\anaconda3\envs\D8TAVu\Lib\site-packages\wfastcgi.py"
+                 resourceType="Unspecified"
+                 requireAccess="Script" />
+        </handlers>
+        <fastCgi>
+            <application fullPath="C:\Users\a-gon\anaconda3\envs\D8TAVu\python.exe"
+                        arguments="C:\Users\a-gon\anaconda3\envs\D8TAVu\Lib\site-packages\wfastcgi.py"
+                        maxInstances="4"
+                        idleTimeout="300">
+            </application>
+        </fastCgi>
+    </system.webServer>
+    <appSettings>
+        <add key="WSGI_HANDLER" value="app.app" />
+        <add key="PYTHONPATH" value="C:\Users\a-gon\OneDrive\Documents\python\CascadeProjects\windsurf-project\D8TAVu" />
+        <add key="WSGI_LOG" value="C:\Users\a-gon\OneDrive\Documents\python\CascadeProjects\windsurf-project\D8TAVu\wfastcgi.log" />
+        <add key="SCRIPT_NAME" value="/D8TAVu" />
+    </appSettings>
+</configuration>

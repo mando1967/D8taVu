@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Stock Data Visualization</title>
+    <link rel="shortcut icon" href="/D8TAVu/favicon.ico">
+    <style>
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .ma-period-input {
+            margin-left: 10px !important;
+            width: 80px !important;
+        }
+        .error {
+            color: red;
+            margin: 10px 0;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:disabled {
+            background-color: #cccccc;
+        }
+        #plot-container {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <!-- Load React first -->
+    <script src="https://unpkg.com/react@17/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js" crossorigin></script>
+    <!-- Load Babel -->
+    <script src="https://unpkg.com/@babel/standalone@7.22.17/babel.min.js"></script>
+    <!-- Load our app code last -->
+    <script type="text/babel">
+        // StockForm Component
+        const StockForm = () => {
+            const [ticker, setTicker] = React.useState('');
+            const [startDate, setStartDate] = React.useState('');
+            const [endDate, setEndDate] = React.useState('');
+            const [plotImage, setPlotImage] = React.useState('');
+            const [error, setError] = React.useState('');
+            const [loading, setLoading] = React.useState(false);
+            const [plotType, setPlotType] = React.useState('line');
+            const [showMA, setShowMA] = React.useState(false);
+            const [showVolume, setShowVolume] = React.useState(false);
+            const [maPeriod, setMaPeriod] = React.useState(20);
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setError('');
+                setLoading(true);
+                try {
+                    const response = await fetch('/D8TAVu/stock-data', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            ticker,
+                            startDate,
+                            endDate,
+                            plotType,
+                            showMA,
+                            showVolume,
+                            maPeriod
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        setPlotImage(`data:image/png;base64,${data.plot}`);
+                    } else {
+                        setError(data.error || 'Failed to fetch stock data');
+                    }
+                } catch (error) {
+                    setError('An error occurred while fetching the data');
+                    console.error('Error:', error);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="container">
+                    <h1>Stock Data Visualization</h1>
+                    <form onSubmit={handleSubmit}>
+                        <div className="form-group">
+                            <label>Ticker Symbol:</label>
+                            <input
+                                type="text"
+                                value={ticker}
+                                onChange={(e) => setTicker(e.target.value.toUpperCase())}
+                                placeholder="e.g., AAPL"
+                                required
+                            />
+                        </div>
+                        <div className="form-group">
+                            <label>Start Date:</label>
+                            <input
+                                type="date"
+                                value={startDate}
+                                onChange={(e) => setStartDate(e.target.value)}
+                                required
+                            />
+                        </div>
+                        <div className="form-group">
+                            <label>End Date:</label>
+                            <input
+                                type="date"
+                                value={endDate}
+                                onChange={(e) => setEndDate(e.target.value)}
+                                required
+                            />
+                        </div>
+                        <div className="form-group">
+                            <label>Plot Type:</label>
+                            <select value={plotType} onChange={(e) => setPlotType(e.target.value)}>
+                                <option value="line">Line</option>
+                                <option value="candlestick">Candlestick</option>
+                                <option value="ohlc">OHLC</option>
+                            </select>
+                        </div>
+                        <div className="form-group">
+                            <label>
+                                <input
+                                    type="checkbox"
+                                    checked={showMA}
+                                    onChange={(e) => setShowMA(e.target.checked)}
+                                />
+                                Show Moving Average
+                            </label>
+                            {showMA && (
+                                <input
+                                    type="number"
+                                    value={maPeriod}
+                                    onChange={(e) => setMaPeriod(parseInt(e.target.value))}
+                                    min="1"
+                                    max="200"
+                                    placeholder="MA Period"
+                                    style={{"marginLeft": "10px", "width": "80px"}}
+                                />
+                            )}
+                        </div>
+                        <div className="form-group">
+                            <label>
+                                <input
+                                    type="checkbox"
+                                    checked={showVolume}
+                                    onChange={(e) => setShowVolume(e.target.checked)}
+                                />
+                                Show Volume
+                            </label>
+                        </div>
+                        <button type="submit" disabled={loading}>
+                            {loading ? 'Loading...' : 'Generate Plot'}
+                        </button>
+                    </form>
+                    
+                    {error && <div className="error">{error}</div>}
+                    
+                    {plotImage && (
+                        <div id="plot-container">
+                            <img src={plotImage} alt="Stock Plot" style={{width: '100%'}} />
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // Render the app
+        ReactDOM.render(<StockForm />, document.getElementById('root'));
+    </script>
+</body>
+</html>

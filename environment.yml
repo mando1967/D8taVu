@@ -1,0 +1,14 @@
+name: D8TAVu_web
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.9
+  - flask
+  - pandas
+  - matplotlib
+  - yfinance
+  - mplfinance
+  - pip
+  - pip:
+    - wfastcgi
