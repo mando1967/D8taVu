@@ -1,0 +1,383 @@
+{% extends "index.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- View Style Selector -->
+    <div class="mb-3">
+        <div class="btn-group" role="group">
+            <button type="button" class="btn btn-outline-primary active" data-view="list">
+                <i class="fas fa-list"></i> List
+            </button>
+            <button type="button" class="btn btn-outline-primary" data-view="grid">
+                <i class="fas fa-th"></i> Grid
+            </button>
+            <button type="button" class="btn btn-outline-primary" data-view="tree">
+                <i class="fas fa-sitemap"></i> Tree
+            </button>
+        </div>
+    </div>
+
+    <!-- Breadcrumb Navigation -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            {% for name, path in breadcrumbs %}
+                {% if loop.last %}
+                    <li class="breadcrumb-item active">{{ name }}</li>
+                {% else %}
+                    <li class="breadcrumb-item">
+                        <a href="{{ url_for('browse_files', subpath=path) }}">{{ name }}</a>
+                    </li>
+                {% endif %}
+            {% endfor %}
+        </ol>
+    </nav>
+
+    <!-- Action Buttons -->
+    <div class="mb-3">
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
+            <i class="fas fa-upload"></i> Upload File
+        </button>
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createDirModal">
+            <i class="fas fa-folder-plus"></i> New Folder
+        </button>
+    </div>
+
+    <!-- File Browser Views -->
+    <div class="file-browser">
+        <!-- List View (default) -->
+        <div class="view-list active">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Size</th>
+                            <th>Modified</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for file in files %}
+                        <tr>
+                            <td>
+                                <i class="fas {{ file.icon_class }} me-2"></i>
+                                {% if file.is_dir %}
+                                    <a href="{{ url_for('browse_files', subpath=file.path) }}">{{ file.name }}</a>
+                                {% else %}
+                                    <a href="{{ file_manager.get_download_url(file.path) }}" class="text-decoration-none">{{ file.name }}</a>
+                                {% endif %}
+                            </td>
+                            <td>{{ file.size|filesizeformat if not file.is_dir else '-' }}</td>
+                            <td>{{ file.modified_time.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                            <td>
+                                {% if file.name != '..' %}
+                                <div class="btn-group">
+                                    {% if not file.is_dir %}
+                                        <a href="{{ file_manager.get_download_url(file.path) }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-download"></i>
+                                        </a>
+                                    {% endif %}
+                                    <button type="button" class="btn btn-sm btn-outline-danger delete-item" 
+                                            data-path="{{ file.path }}" data-name="{{ file.name }}">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Grid View -->
+        <div class="view-grid">
+            <div class="row g-3">
+                {% for file in files %}
+                <div class="col-sm-6 col-md-4 col-lg-3 col-xl-2">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <i class="fas {{ file.icon_class }} fa-3x mb-2"></i>
+                            <h6 class="card-title text-truncate">
+                                {% if file.is_dir %}
+                                    <a href="{{ url_for('browse_files', subpath=file.path) }}">{{ file.name }}</a>
+                                {% else %}
+                                    <a href="{{ file_manager.get_download_url(file.path) }}" class="text-decoration-none">{{ file.name }}</a>
+                                {% endif %}
+                            </h6>
+                            <p class="card-text small">
+                                {{ file.size|filesizeformat if not file.is_dir else 'Folder' }}<br>
+                                {{ file.modified_time.strftime('%Y-%m-%d') }}
+                            </p>
+                            {% if file.name != '..' %}
+                            <div class="btn-group">
+                                {% if not file.is_dir %}
+                                    <a href="{{ file_manager.get_download_url(file.path) }}" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-download"></i>
+                                    </a>
+                                {% endif %}
+                                <button type="button" class="btn btn-sm btn-outline-danger delete-item" 
+                                        data-path="{{ file.path }}" data-name="{{ file.name }}">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Tree View -->
+        <div class="view-tree">
+            <div id="tree-container"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Upload Modal -->
+<div class="modal fade" id="uploadModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Upload File</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="uploadForm">
+                    <input type="hidden" name="path" value="{{ current_path }}">
+                    <div class="mb-3">
+                        <label for="file" class="form-label">Choose File</label>
+                        <input type="file" class="form-control" id="file" name="file" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="uploadButton">Upload</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Directory Modal -->
+<div class="modal fade" id="createDirModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create New Folder</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createDirForm">
+                    <div class="mb-3">
+                        <label for="folderName" class="form-label">Folder Name</label>
+                        <input type="text" class="form-control" id="folderName" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="createDirButton">Create</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to delete <span id="deleteItemName"></span>?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDelete">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // View switching
+    const viewButtons = document.querySelectorAll('[data-view]');
+    const views = document.querySelectorAll('.view-list, .view-grid, .view-tree');
+
+    viewButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const viewType = button.dataset.view;
+            
+            // Update buttons
+            viewButtons.forEach(btn => btn.classList.remove('active'));
+            button.classList.add('active');
+            
+            // Update views
+            views.forEach(view => {
+                view.classList.remove('active');
+                if (view.classList.contains(`view-${viewType}`)) {
+                    view.classList.add('active');
+                }
+            });
+
+            // Initialize tree view if selected
+            if (viewType === 'tree') {
+                initializeTreeView();
+            }
+        });
+    });
+
+    // File upload
+    const uploadForm = document.getElementById('uploadForm');
+    const uploadButton = document.getElementById('uploadButton');
+
+    uploadButton.addEventListener('click', () => {
+        const formData = new FormData(uploadForm);
+        
+        fetch('{{ url_for("upload_file") }}', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert(data.error);
+            } else {
+                location.reload();
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Upload failed');
+        });
+    });
+
+    // Create directory
+    const createDirForm = document.getElementById('createDirForm');
+    const createDirButton = document.getElementById('createDirButton');
+
+    createDirButton.addEventListener('click', () => {
+        const name = document.getElementById('folderName').value;
+        
+        fetch('{{ url_for("create_directory") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                path: '{{ current_path }}',
+                name: name
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert(data.error);
+            } else {
+                location.reload();
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to create directory');
+        });
+    });
+
+    // Delete item
+    let deleteItemPath = '';
+    const deleteButtons = document.querySelectorAll('.delete-item');
+    const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    const confirmDeleteButton = document.getElementById('confirmDelete');
+
+    deleteButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            deleteItemPath = button.dataset.path;
+            document.getElementById('deleteItemName').textContent = button.dataset.name;
+            deleteModal.show();
+        });
+    });
+
+    confirmDeleteButton.addEventListener('click', () => {
+        fetch('{{ url_for("delete_item") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                path: deleteItemPath
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert(data.error);
+            } else {
+                location.reload();
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Delete failed');
+        });
+    });
+
+    // Tree view initialization
+    function initializeTreeView() {
+        const treeContainer = document.getElementById('tree-container');
+        if (!treeContainer.hasChildNodes()) {
+            // Initialize jsTree or similar library here
+            // This is a placeholder for tree view implementation
+        }
+    }
+});
+</script>
+
+<style>
+.file-browser .view-grid,
+.file-browser .view-tree {
+    display: none;
+}
+
+.file-browser .view-grid.active,
+.file-browser .view-tree.active,
+.file-browser .view-list.active {
+    display: block;
+}
+
+.view-grid .card {
+    transition: transform 0.2s;
+}
+
+.view-grid .card:hover {
+    transform: translateY(-5px);
+}
+
+.view-grid .card-body i {
+    color: #0d6efd;
+}
+
+.breadcrumb {
+    background-color: #f8f9fa;
+    padding: 0.75rem 1rem;
+    border-radius: 0.25rem;
+}
+
+.btn-group {
+    margin-right: 0.5rem;
+}
+
+.table td {
+    vertical-align: middle;
+}
+</style>
+{% endblock %}
