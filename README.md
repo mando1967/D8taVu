@@ -2,9 +2,14 @@
 
 A web application for visualizing stock market data using Flask, React, and yfinance.
 
-## Interface Example
-![D8TAVu Interface Example](docs/interface_example.png)
-*Example of D8TAVu showing stock data visualization with interactive controls*
+## Interface Examples
+
+<p align="center">
+  <img src="docs/interface_example_1.png" width="45%" alt="D8TAVu Interface Example 1" style="margin-right: 20px;"/>
+  <img src="docs/interface_example_2.png" width="45%" alt="D8TAVu Interface Example 2"/>
+</p>
+
+*D8TAVu interface showing stock data visualization with interactive controls*
 
 ## Setup and Configuration Scripts
 
