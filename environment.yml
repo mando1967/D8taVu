@@ -8,7 +8,14 @@ dependencies:
   - pandas
   - matplotlib
   - yfinance
-  - mplfinance
-  - pip
-  - pip:
-    - wfastcgi
+  - numpy
+  - requests
+  - beautifulsoup4
+  - python-dateutil
+  - pytz
+  - brotli
+  - wfastcgi
+  - brotlicffi=1.1.0.0
+  - brotlipy=0.7.0
+  - werkzeug=3.1.3
+  - mplfinance=0.12.9b7

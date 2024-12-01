@@ -117,12 +117,18 @@ All setup and configuration scripts are located in the `scripts` directory:
 ## Configuration Files
 
 ### environment.yml
-Contains all Python dependencies including:
-- Flask
-- yfinance
-- pandas
-- matplotlib
-- mplfinance
+Contains all Python dependencies with specific channels:
+- conda-forge: Primary channel for most packages
+- anaconda: Used for specific packages (e.g., werkzeug)
+- defaults: Fallback channel
+
+Key packages and their sources:
+- Flask (conda-forge)
+- werkzeug=3.1.3 (anaconda)
+- mplfinance=0.12.9b7 (conda-forge)
+- yfinance (conda-forge)
+- pandas (conda-forge)
+- matplotlib (conda-forge)
 
 ### web.config
 IIS configuration including:
@@ -132,12 +138,28 @@ IIS configuration including:
 
 ## Development Notes
 
-### Virtual Environment
-Located at: `C:\inetpub\wwwroot\D8TAVu\env`
-Activate using:
+### Environment Management
+Two synchronized environments:
+1. Development Environment: 
+   - Location: `C:\Users\a-gon\anaconda3\envs\D8TAVu`
+   - Created from environment.yml
+
+2. Web Environment:
+   - Location: `C:\inetpub\wwwroot\D8TAVu\env`
+   - Mirrors development environment
+   - Created and managed using provided scripts
+
+To activate web environment:
 ```powershell
 C:\inetpub\wwwroot\D8TAVu\env\Scripts\activate
 ```
+
+### Package Management
+- Use conda for installing packages whenever possible
+- Prefer conda-forge channel for consistency
+- Specific package requirements:
+  - werkzeug: Must be installed from anaconda channel
+  - All other packages: Use conda-forge channel
 
 ### Debug Mode
 Enable debug logging in app.py for troubleshooting:
