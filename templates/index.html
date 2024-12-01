@@ -1,9 +1,15 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Stock Data Visualization</title>
+    <title>D8TAVu - {% block title %}Stock Data Visualization{% endblock %}</title>
     <link rel="shortcut icon" href="/D8TAVu/favicon.ico">
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
     <style>
+        {% block style %}
         .container {
             max-width: 800px;
             margin: 0 auto;
@@ -46,16 +52,47 @@
         #plot-container {
             margin-top: 20px;
         }
+        {% endblock %}
     </style>
 </head>
 <body>
-    <div id="root"></div>
-    <!-- Load React -->
-    <script src="https://unpkg.com/react@17/umd/react.development.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js" crossorigin></script>
-    <!-- Load Babel -->
-    <script src="https://unpkg.com/@babel/standalone@7.22.17/babel.min.js"></script>
-    <!-- Load our React component -->
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/D8TAVu/">D8TAVu</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/D8TAVu/">Stock Data</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/D8TAVu/share">File Browser</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    {% block content %}
+    <div id="root">
+        <!-- React content will be rendered here -->
+    </div>
+    {% endblock %}
+
+    <!-- Scripts -->
+    {% block scripts %}
+    <!-- Bootstrap Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- React -->
+    <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+    <!-- Babel -->
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+    <!-- Stock Form React Component -->
     <script type="text/babel">
         {% raw %}
         // StockForm Component
@@ -198,5 +235,6 @@
         ReactDOM.render(<StockForm />, document.getElementById('root'));
         {% endraw %}
     </script>
+    {% endblock %}
 </body>
 </html>

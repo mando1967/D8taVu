@@ -10,165 +10,113 @@ A web application for visualizing stock market data using Flask, React, and yfin
 
 All setup and configuration scripts are located in the `scripts` directory:
 
-### IIS Setup Scripts (Run as Administrator)
-- `scripts/install_iis_components.bat`: Installs required IIS components and features
-- `scripts/unlock_iis_sections.bat`: Unlocks necessary IIS configuration sections
-- `scripts/enable_wfastcgi.bat`: Enables FastCGI support in IIS
+### IIS Configuration Scripts (Run as Administrator)
+- `scripts/configure_iis.bat`: Configures IIS virtual directory and permissions
+- `scripts/configure_iis.ps1`: PowerShell script for detailed IIS configuration
+- `scripts/configure_virtual_directory.ps1`: Sets up and configures the virtual directory for file access
+- `scripts/check_set_permissions.ps1`: Checks and sets required permissions for IIS
+- `scripts/grant_access.ps1`: Grants necessary file system permissions to IIS app pool
 
-### Environment Setup
-- `scripts/create_web_env.ps1`: Creates and configures the Python virtual environment in IIS
-- `scripts/fix_permissions.ps1`: Fixes common permission issues with the site packages
-- `scripts/set_permissions.ps1`: Sets appropriate permissions for IIS and application directories
-- `scripts/restart_iis.ps1`: Safely restarts IIS and the application pool
-
-### Permission Management
-- `scripts/set_permissions.bat`: Sets initial permissions for IIS and Python directories
-  - Grants necessary permissions to IIS_IUSRS and AppPool
-  - Sets up access rights for the web and Python environment
-  - Run this after initial installation
-
-- `scripts/fix_permissions.ps1`: Advanced permission fixes
-  - Resolves complex permission issues
-  - Handles nested directory permissions
-  - Use when experiencing access denied errors
-
-### IIS Management
-- `scripts/restart_iis.ps1`: PowerShell script to restart IIS and application pool
-  - Safely stops and starts services
-  - Resets application pool
-  - Use after configuration changes
-
-## Common Tasks
+### Common Tasks
 
 ### Initial Setup
-1. Install IIS Components:
-   ```batch
-   .\scripts\install_iis_components.bat
-   ```
-
-2. Configure IIS:
-   ```batch
-   .\scripts\unlock_iis_sections.bat
-   .\scripts\enable_wfastcgi.bat
-   ```
-
-3. Set Up Environment:
+1. Configure IIS and Virtual Directory:
    ```powershell
-   .\scripts\create_web_env.ps1
+   .\scripts\configure_iis.ps1
+   .\scripts\configure_virtual_directory.ps1
    ```
 
-4. Set Permissions:
-   ```batch
-   .\scripts\set_permissions.bat
+2. Set Permissions:
+   ```powershell
+   .\scripts\check_set_permissions.ps1
    ```
 
 ### Troubleshooting
 
 1. Permission Issues:
    ```powershell
-   .\scripts\fix_permissions.ps1
+   # Check and fix permissions
+   .\scripts\check_set_permissions.ps1
+   
+   # Grant specific access to app pool
+   .\scripts\grant_access.ps1
    ```
 
-2. IIS Reset:
+2. Virtual Directory Issues:
    ```powershell
-   .\scripts\restart_iis.ps1
+   # Reconfigure virtual directory
+   .\scripts\configure_virtual_directory.ps1
    ```
 
 ## Common Issues and Solutions
 
 ### Permission Issues
-1. Environment Access:
+1. IIS App Pool Access:
    ```powershell
-   # Run fix_permissions.ps1 with administrator privileges
-   .\scripts\fix_permissions.ps1
+   # Run check_set_permissions.ps1 with administrator privileges
+   .\scripts\check_set_permissions.ps1
    ```
 
-2. Site-specific Permissions:
+2. File System Access:
    ```powershell
-   # Use set_permissions.ps1 for targeted fixes
-   .\scripts\set_permissions.ps1 -path "path\to\directory" -user "IIS APPPOOL\D8TAVu"
+   # Use grant_access.ps1 for specific permissions
+   .\scripts\grant_access.ps1
    ```
 
 ### IIS Configuration
-1. Application Pool Problems:
+1. Virtual Directory Setup:
    ```powershell
-   # Restart IIS and app pool
-   .\scripts\restart_iis.ps1
+   # Configure or reconfigure virtual directory
+   .\scripts\configure_virtual_directory.ps1
    ```
 
-2. Python Integration:
-   - Verify web.config settings
-   - Check FastCGI configuration
-   - Ensure environment paths are correct
+2. General IIS Configuration:
+   ```powershell
+   # Run full IIS configuration
+   .\scripts\configure_iis.ps1
+   ```
 
-### Data Handling
-- Date format: YYYY-MM-DD
-- Moving averages: Integer periods only
-- Volume display: Optional boolean parameter
+## Application Structure
 
-## Recent Updates
-
-### Plot Branch Merge
-- Improved date handling in stock data response
-- Enhanced error handling and logging
-- Added comprehensive frontend validation
-- Updated IIS configuration for better stability
-
-## Configuration Files
-
-### environment.yml
-Contains all Python dependencies with specific channels:
-- conda-forge: Primary channel for most packages
-- anaconda: Used for specific packages (e.g., werkzeug)
-- defaults: Fallback channel
-
-Key packages and their sources:
-- Flask (conda-forge)
-- werkzeug=3.1.3 (anaconda)
-- mplfinance=0.12.9b7 (conda-forge)
-- yfinance (conda-forge)
-- pandas (conda-forge)
-- matplotlib (conda-forge)
-
-### web.config
-IIS configuration including:
-- FastCGI settings
-- Python handler mapping
-- Environment variables
+### Key Components
+- `app.py`: Main Flask application
+- `file_manager.py`: File system operations and management
+- `templates/`: HTML templates
+  - `index.html`: Main application template
+  - `file_browser.html`: File browser interface
+- `scripts/`: Configuration and management scripts
+- `web.config`: IIS configuration file
 
 ## Development Notes
 
-### Environment Management
-Two synchronized environments:
-1. Development Environment: 
-   - Location: `C:\Users\a-gon\anaconda3\envs\D8TAVu`
-   - Created from environment.yml
+### Virtual Directory Configuration
+The application uses an IIS virtual directory named "share" that points to the user's Documents folder. This allows secure file browsing while maintaining proper access controls through IIS.
 
-2. Web Environment:
-   - Location: `C:\inetpub\wwwroot\D8TAVu\env`
-   - Mirrors development environment
-   - Created and managed using provided scripts
+### Security Considerations
+- Basic authentication is enabled for file access
+- File operations are restricted to the virtual directory
+- IIS app pool permissions are limited to necessary access levels
 
-To activate web environment:
-```powershell
-C:\inetpub\wwwroot\D8TAVu\env\Scripts\activate
-```
+### Logging
+- Application logs are stored in `app.log`
+- IIS logs are in their default location
+- Each script includes detailed logging of its operations
 
-### Package Management
-- Use conda for installing packages whenever possible
-- Prefer conda-forge channel for consistency
-- Specific package requirements:
-  - werkzeug: Must be installed from anaconda channel
-  - All other packages: Use conda-forge channel
+## Deployment Steps
 
-### Debug Mode
-Enable debug logging in app.py for troubleshooting:
-```python
-app.logger.setLevel(logging.DEBUG)
-```
+1. Ensure IIS is installed with Python support
+2. Run the configuration scripts in this order:
+   ```powershell
+   .\scripts\configure_iis.ps1
+   .\scripts\configure_virtual_directory.ps1
+   .\scripts\check_set_permissions.ps1
+   ```
+3. Verify the application pool and virtual directory settings
+4. Test file access through the web interface
 
-## Security Considerations
-- All scripts should be run with appropriate privileges
-- Regularly update Python packages
-- Monitor IIS logs for errors
-- Implement rate limiting for API calls
+## Environment Requirements
+
+- Windows Server with IIS
+- Python 3.9+
+- IIS URL Rewrite Module (optional)
+- FastCGI module for IIS

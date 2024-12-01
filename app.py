@@ -34,16 +34,17 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.config['APPLICATION_ROOT'] = '/D8TAVu'
 
-# Initialize FileManager with the share directory path
-SHARE_PATH = "C:/inetpub/wwwroot/D8TAVu/share"
+# Initialize FileManager with the user files directory
+USER_FILES_PATH = "C:/Users/a-gon/OneDrive/Documents"
+VIRTUAL_DIR_URL = "/D8TAVu/share"
 try:
-    # Create share directory if it doesn't exist
-    if not os.path.exists(SHARE_PATH):
-        os.makedirs(SHARE_PATH)
-        logger.info(f"Created share directory at: {SHARE_PATH}")
+    # Ensure the directory exists
+    if not os.path.exists(USER_FILES_PATH):
+        logger.error(f"User files directory does not exist: {USER_FILES_PATH}")
+        raise ValueError(f"User files directory does not exist: {USER_FILES_PATH}")
     
-    logger.info(f"Initializing FileManager with SHARE_PATH: {SHARE_PATH}")
-    file_manager = FileManager(SHARE_PATH, "/D8TAVu/share")
+    logger.info(f"Initializing FileManager with USER_FILES_PATH: {USER_FILES_PATH}")
+    file_manager = FileManager(USER_FILES_PATH, VIRTUAL_DIR_URL)
     logger.info("FileManager initialized successfully")
 except Exception as e:
     logger.error(f"Error initializing FileManager: {str(e)}", exc_info=True)
@@ -70,23 +71,23 @@ def check_share_access():
     if request.path.startswith('/D8TAVu/share'):
         try:
             # Test if we can access the share directory
-            Path(SHARE_PATH).stat()
+            Path(USER_FILES_PATH).stat()
         except PermissionError:
-            logger.error(f"Permission denied accessing share directory: {SHARE_PATH}")
+            logger.error(f"Permission denied accessing share directory: {USER_FILES_PATH}")
             return jsonify({
                 'error': 'Access to share directory is not available. Please contact administrator.'
             }), 500
         except Exception as e:
             logger.error(f"Error accessing share directory: {str(e)}", exc_info=True)
             return jsonify({
-                'error': 'Unable to access share directory'
+                'error': 'Share directory is not available'
             }), 500
 
 # Add static file serving for the share directory
 @app.route('/D8TAVu/share/static/<path:filename>')
 def serve_static(filename):
     try:
-        return send_from_directory(SHARE_PATH, filename, as_attachment=True)
+        return send_from_directory(USER_FILES_PATH, filename, as_attachment=True)
     except Exception as e:
         logger.error(f"Error serving static file: {str(e)}", exc_info=True)
         return jsonify({'error': str(e)}), 404
@@ -117,16 +118,22 @@ def authenticate():
 @app.route('/D8TAVu/')
 @app.route('/')
 def home():
+    """Home page - Stock Data Visualization"""
     logger.info('Accessing home page')
+    # Always redirect to /D8TAVu/ to maintain consistency
+    if request.path == '/':
+        return redirect('/D8TAVu/')
     return render_template('index.html')
 
 @app.route('/D8TAVu/health')
 @app.route('/health')
 def health():
+    """Health check endpoint"""
     logger.info('Health check endpoint accessed')
     return {'status': 'healthy'}, 200
 
 @app.route('/D8TAVu/stock-data', methods=['POST'])
+@app.route('/stock-data', methods=['POST'])
 def get_stock_data():
     logger.info('Stock data endpoint accessed')
     try:
@@ -249,12 +256,21 @@ def get_stock_data():
 
 @app.route('/D8TAVu/share/')
 @app.route('/D8TAVu/share/<path:subpath>')
+@app.route('/share/')
+@app.route('/share/<path:subpath>')
 @requires_auth
 def browse_files(subpath=''):
     """Browse files in the share directory"""
     logger.info(f'Accessing share directory with subpath: {subpath}')
     try:
+        # Normalize subpath to handle both /D8TAVu/share and /share URLs
+        if subpath.startswith('D8TAVu/share/'):
+            subpath = subpath[len('D8TAVu/share/'):]
+        elif subpath.startswith('share/'):
+            subpath = subpath[len('share/'):]
+            
         # Log the actual paths being used
+        logger.info(f'Normalized subpath: {subpath}')
         logger.info(f'Root path: {file_manager.root_path}')
         logger.info(f'Full requested path: {file_manager.root_path / subpath if subpath else file_manager.root_path}')
         
@@ -263,7 +279,7 @@ def browse_files(subpath=''):
         logger.info(f'Directory access check result: {access_result}')
         
         if not access_result:
-            logger.error(f"Permission denied accessing share directory: {SHARE_PATH}")
+            logger.error(f"Permission denied accessing share directory: {USER_FILES_PATH}")
             return jsonify({
                 'error': 'Access to share directory is not available. Please contact administrator.'
             }), 500
@@ -296,6 +312,7 @@ def browse_files(subpath=''):
         return jsonify({'error': 'An unexpected error occurred', 'details': str(e)}), 500
 
 @app.route('/D8TAVu/share/download/<path:filepath>')
+@app.route('/share/download/<path:filepath>')
 @requires_auth
 def download_file(filepath):
     logger.info(f'File download requested: {filepath}')
@@ -311,6 +328,7 @@ def download_file(filepath):
         return jsonify({'error': 'An unexpected error occurred'}), 500
 
 @app.route('/D8TAVu/share/upload', methods=['POST'])
+@app.route('/share/upload', methods=['POST'])
 @requires_auth
 def upload_file():
     logger.info('File upload initiated')
@@ -343,6 +361,7 @@ def upload_file():
         return jsonify({'error': 'An unexpected error occurred'}), 500
 
 @app.route('/D8TAVu/share/create-directory', methods=['POST'])
+@app.route('/share/create-directory', methods=['POST'])
 @requires_auth
 def create_directory():
     logger.info('Directory creation initiated')
@@ -371,29 +390,14 @@ def create_directory():
         return jsonify({'error': 'An unexpected error occurred'}), 500
 
 @app.route('/D8TAVu/share/delete', methods=['POST'])
-@requires_auth
+@app.route('/share/delete', methods=['POST'])
 def delete_item():
-    logger.info('Delete item initiated')
-    try:
-        data = request.get_json()
-        logger.debug(f'Delete request data: {data}')
-        
-        path = data.get('path', '')
-        if not path:
-            logger.warning('No path provided for deletion')
-            return jsonify({'error': 'Path is required'}), 400
-            
-        logger.debug(f'Deleting item: {path}')
-        file_manager.delete_item(path)
-        logger.info(f'Item deleted successfully: {path}')
-        
-        return jsonify({'message': 'Item deleted successfully'})
-    except ValueError as e:
-        logger.error(f"Error deleting item: {str(e)}", exc_info=True)
-        return jsonify({'error': str(e)}), 400
-    except Exception as e:
-        logger.error(f"Unexpected error deleting item: {str(e)}", exc_info=True)
-        return jsonify({'error': 'An unexpected error occurred'}), 500
+    """
+    This endpoint has been disabled for security reasons.
+    File deletion is not permitted through the web interface.
+    """
+    app.logger.warning("File deletion attempt blocked - functionality disabled")
+    return jsonify({"error": "File deletion is not permitted"}), 403
 
 if __name__ == '__main__':
     app.run(debug=True)
