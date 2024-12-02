@@ -1,55 +1,68 @@
+# Import configuration
+$configPath = Join-Path $PSScriptRoot "config.ps1"
+if (-not (Test-Path $configPath)) {
+    Write-Host "Configuration file not found: $configPath" -ForegroundColor Red
+    exit 1
+}
+. $configPath
+
 # Import IIS module
 Import-Module WebAdministration
 
-# Configuration
-$appPoolName = "D8TAVu"
-$siteName = "Default Web Site"
-$appName = "D8TAVu"
-$physicalPath = "C:\inetpub\wwwroot\D8TAVu"
-
-Write-Host "Creating and configuring IIS Application Pool and Web Application..."
+Write-ConfigLog "Creating and configuring IIS Application Pool and Web Application..."
 
 # Create Application Pool if it doesn't exist
-if (!(Test-Path "IIS:\AppPools\$appPoolName")) {
-    Write-Host "Creating Application Pool: $appPoolName"
-    New-WebAppPool -Name $appPoolName
+if (!(Test-Path "IIS:\AppPools\$APP_NAME")) {
+    Write-ConfigLog "Creating Application Pool: $APP_NAME"
+    New-WebAppPool -Name $APP_NAME
     
     # Configure App Pool Settings
-    $appPool = Get-IISAppPool -Name $appPoolName
+    Write-ConfigLog "Configuring Application Pool settings..."
     
     # Set to No Managed Code
-    Set-ItemProperty "IIS:\AppPools\$appPoolName" -Name "managedRuntimeVersion" -Value ""
+    Set-ItemProperty "IIS:\AppPools\$APP_NAME" -Name "managedRuntimeVersion" -Value ""
     
     # Set identity to ApplicationPoolIdentity
-    Set-ItemProperty "IIS:\AppPools\$appPoolName" -Name "processModel.identityType" -Value 4
+    Set-ItemProperty "IIS:\AppPools\$APP_NAME" -Name "processModel.identityType" -Value 4
     
     # Enable 32-bit applications
-    Set-ItemProperty "IIS:\AppPools\$appPoolName" -Name "enable32BitAppOnWin64" -Value $true
+    Set-ItemProperty "IIS:\AppPools\$APP_NAME" -Name "enable32BitAppOnWin64" -Value $true
     
-    Write-Host "Application Pool configured successfully"
+    Write-ConfigLog "Application Pool configured successfully" "Success"
 } else {
-    Write-Host "Application Pool $appPoolName already exists"
+    Write-ConfigLog "Application Pool $APP_NAME already exists" "Info"
 }
 
 # Create Web Application if it doesn't exist
-$webAppPath = "IIS:\Sites\$siteName\$appName"
+$webAppPath = "IIS:\Sites\$WEB_SITE_NAME\$APP_NAME"
 if (!(Test-Path $webAppPath)) {
-    Write-Host "Creating Web Application: $appName"
-    New-WebApplication -Name $appName -Site $siteName -PhysicalPath $physicalPath -ApplicationPool $appPoolName -Force
+    Write-ConfigLog "Creating Web Application: $APP_NAME"
+    New-WebApplication -Name $APP_NAME -Site $WEB_SITE_NAME -PhysicalPath $APP_ROOT -ApplicationPool $APP_NAME -Force
     
     # Configure FastCGI Handler Mapping
-    Add-WebConfiguration -Filter "system.webServer/handlers" -PSPath $webAppPath -Value @{
-        name="Python_via_FastCGI"
-        path="*"
-        verb="*"
-        modules="FastCgiModule"
-        scriptProcessor="C:\inetpub\wwwroot\D8TAVu\env\Scripts\python.exe|C:\inetpub\wwwroot\D8TAVu\env\Lib\site-packages\wfastcgi.py"
-        resourceType="Unspecified"
+    Write-ConfigLog "Configuring FastCGI Handler Mapping..."
+    $pythonPath = Join-Path $APP_ROOT "env\Scripts\python.exe"
+    $wfastcgiPath = Join-Path $APP_ROOT "env\Lib\site-packages\wfastcgi.py"
+    
+    try {
+        Add-WebConfiguration -Filter "system.webServer/handlers" -PSPath $webAppPath -Value @{
+            name="Python_via_FastCGI"
+            path="*"
+            verb="*"
+            modules="FastCgiModule"
+            scriptProcessor="$pythonPath|$wfastcgiPath"
+            resourceType="Unspecified"
+        }
+        Write-ConfigLog "FastCGI Handler Mapping configured successfully" "Success"
+    }
+    catch {
+        Write-ConfigLog "Error configuring FastCGI Handler Mapping: $_" "Error"
+        if ($ABORT_ON_ERROR) { exit 1 }
     }
     
-    Write-Host "Web Application created and configured successfully"
+    Write-ConfigLog "Web Application created and configured successfully" "Success"
 } else {
-    Write-Host "Web Application $appName already exists"
+    Write-ConfigLog "Web Application $APP_NAME already exists" "Info"
 }
 
-Write-Host "Configuration complete!"
+Write-ConfigLog "IIS Application Pool and Web Application setup completed"

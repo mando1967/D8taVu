@@ -1,38 +1,55 @@
+# Import configuration
+$configPath = Join-Path $PSScriptRoot "config.ps1"
+if (-not (Test-Path $configPath)) {
+    Write-Host "Configuration file not found: $configPath" -ForegroundColor Red
+    exit 1
+}
+. $configPath
+
 # Import WebAdministration module
 Import-Module WebAdministration
 
-# Configuration
-$siteName = "Default Web Site"
-$appName = "D8TAVu"
-$virtualDirName = "share"
-$physicalPath = "C:\Users\a-gon\OneDrive\Documents" # This is the target directory we want to access
-$appPoolName = "D8TAVu"
-$appPoolIdentity = "IIS AppPool\${appPoolName}"
+Write-ConfigLog "Configuring virtual directory for $APP_NAME..."
 
-Write-Host "Configuring virtual directory for D8TAVu..."
+# Configuration
+$siteName = $WEB_SITE_NAME
+$appName = $APP_NAME
+$virtualDirName = $VIRTUAL_DIR_NAME
+$physicalPath = $USER_FILES_PATH
+$appPoolName = $APP_NAME
+$appPoolIdentity = "IIS AppPool\$appPoolName"
+
+Write-ConfigLog "Configuring virtual directory for D8TAVu..."
 
 # Check if virtual directory exists
 $virtualDirPath = "IIS:\Sites\$siteName\$appName\$virtualDirName"
 if (Test-Path $virtualDirPath) {
-    Write-Host "Virtual directory already exists. Removing..."
+    Write-ConfigLog "Virtual directory already exists. Removing..."
     Remove-Item $virtualDirPath -Recurse -Force
 }
 
 # Create virtual directory
-Write-Host "Creating virtual directory..."
+Write-ConfigLog "Creating virtual directory..."
 New-WebVirtualDirectory -Site $siteName -Application $appName -Name $virtualDirName -PhysicalPath $physicalPath
 
 # Set directory permissions
-Write-Host "Setting directory permissions..."
+Write-ConfigLog "Setting directory permissions..."
 $acl = Get-Acl $physicalPath
-$permission = $appPoolIdentity, "ReadAndExecute", "ContainerInherit,ObjectInherit", "None", "Allow"
-$accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule $permission
+
+# Create access rule for required permissions
+$accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+    $IIS_USER,
+    $REQUIRED_PERMISSIONS,
+    "ContainerInherit,ObjectInherit",
+    "None",
+    "Allow"
+)
 
 # Check if permission already exists
 $hasPermission = $false
 foreach ($access in $acl.Access) {
-    if ($access.IdentityReference.Value -eq $appPoolIdentity) {
-        Write-Host "Permission already exists for $appPoolIdentity"
+    if ($access.IdentityReference.Value -eq $IIS_USER) {
+        Write-ConfigLog "Permission already exists for $IIS_USER"
         $hasPermission = $true
         break
     }
@@ -42,12 +59,14 @@ if (-not $hasPermission) {
     $acl.AddAccessRule($accessRule)
     try {
         Set-Acl -Path $physicalPath -AclObject $acl
-        Write-Host "Added ReadAndExecute permissions for $appPoolIdentity"
+        Write-ConfigLog "Added permissions for $IIS_USER"
     }
     catch {
-        Write-Host "Error setting permissions: $_"
+        $errorMessage = "Error setting permissions: $_"
+        Write-ConfigLog $errorMessage "Error"
+        if ($ABORT_ON_ERROR) { exit 1 }
     }
 }
 
-Write-Host "Virtual directory configuration complete!"
-Write-Host "Virtual Directory URL: http://localhost/D8TAVu/$virtualDirName"
+Write-ConfigLog "Virtual directory configuration completed"
+Write-ConfigLog "Virtual Directory URL: http://localhost/$appName/$virtualDirName"

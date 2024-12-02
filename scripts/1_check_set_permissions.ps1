@@ -1,29 +1,32 @@
+# Import configuration
+$configPath = Join-Path $PSScriptRoot "config.ps1"
+if (-not (Test-Path $configPath)) {
+    Write-Host "Configuration file not found: $configPath" -ForegroundColor Red
+    exit 1
+}
+. $configPath
+
 # Paths to check/set permissions
 $paths = @(
-    "C:\inetpub\wwwroot\D8TAVu",
-    "C:\inetpub\wwwroot\D8TAVu\app.log",
-    "C:\inetpub\wwwroot\D8TAVu\share"
+    $APP_ROOT,
+    (Join-Path $APP_ROOT "app.log"),
+    (Join-Path $APP_ROOT $VIRTUAL_DIR_NAME)
 )
 
-# Application Pool Identity
-$appPoolName = "D8TAVu"
-$appPoolIdentity = "IIS AppPool\${appPoolName}"
-
-Write-Host "Checking permissions for ${appPoolIdentity}..."
-Write-Host ""
+Write-ConfigLog "Checking permissions for $IIS_USER..."
 
 foreach ($path in $paths) {
-    Write-Host "Checking ${path}..."
+    Write-ConfigLog "Checking $path..."
     
     # Create directory if it's share and doesn't exist
-    if ($path -eq "C:\inetpub\wwwroot\D8TAVu\share" -and !(Test-Path $path)) {
+    if ($path -eq (Join-Path $APP_ROOT $VIRTUAL_DIR_NAME) -and !(Test-Path $path)) {
         New-Item -Path $path -ItemType Directory -Force
-        Write-Host "Created share directory: ${path}"
+        Write-ConfigLog "Created share directory: $path"
     }
     # Create file if it's app.log and doesn't exist
-    elseif ($path -eq "C:\inetpub\wwwroot\D8TAVu\app.log" -and !(Test-Path $path)) {
+    elseif ($path -eq (Join-Path $APP_ROOT "app.log") -and !(Test-Path $path)) {
         New-Item -Path $path -ItemType File -Force
-        Write-Host "Created log file: ${path}"
+        Write-ConfigLog "Created log file: $path"
     }
 
     # Get current ACL
@@ -32,32 +35,37 @@ foreach ($path in $paths) {
     # Check if identity already has permissions
     $hasPermission = $false
     foreach ($access in $acl.Access) {
-        if ($access.IdentityReference.Value -eq $appPoolIdentity) {
-            Write-Host "Current permissions for ${appPoolIdentity}:"
-            Write-Host "- FileSystemRights: $($access.FileSystemRights)"
-            Write-Host "- AccessControlType: $($access.AccessControlType)"
+        if ($access.IdentityReference.Value -eq $IIS_USER) {
+            Write-ConfigLog "Current permissions for $IIS_USER:"
+            Write-ConfigLog "- FileSystemRights: $($access.FileSystemRights)"
+            Write-ConfigLog "- AccessControlType: $($access.AccessControlType)"
             $hasPermission = $true
         }
     }
 
     if (-not $hasPermission) {
-        Write-Host "${appPoolIdentity} has no explicit permissions"
+        Write-ConfigLog "$IIS_USER has no explicit permissions"
         
         # Add permissions
-        $permission = $appPoolIdentity, "Modify", "ContainerInherit,ObjectInherit", "None", "Allow"
-        $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule $permission
+        $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+            $IIS_USER,
+            $REQUIRED_PERMISSIONS,
+            "ContainerInherit,ObjectInherit",
+            "None",
+            "Allow"
+        )
         $acl.AddAccessRule($accessRule)
         
         try {
             Set-Acl -Path $path -AclObject $acl
-            Write-Host "Added Modify permissions for ${appPoolIdentity}"
+            Write-ConfigLog "Added $REQUIRED_PERMISSIONS permissions for $IIS_USER"
         }
         catch {
-            Write-Host "Error setting permissions: $_"
+            $errorMessage = "Error setting permissions: $_"
+            Write-ConfigLog $errorMessage "Error"
+            if ($ABORT_ON_ERROR) { exit 1 }
         }
     }
-    
-    Write-Host ""
 }
 
-Write-Host "Permission check/set complete"
+Write-ConfigLog "Permission check and setup completed"

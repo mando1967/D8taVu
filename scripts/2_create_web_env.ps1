@@ -4,18 +4,26 @@ param(
     [switch]$CheckPermissionsOnly
 )
 
+# Import configuration
+$configPath = Join-Path $PSScriptRoot "config.ps1"
+if (-not (Test-Path $configPath)) {
+    Write-Host "Configuration file not found: $configPath" -ForegroundColor Red
+    exit 1
+}
+. $configPath
+
 # Get the root directory (one level up from scripts)
 $rootDir = Split-Path -Parent $PSScriptRoot
 
 # Create environment in web app directory
-$webAppPath = "C:\inetpub\wwwroot\D8TAVu"
+$webAppPath = $APP_ROOT
 $envYamlPath = Join-Path $rootDir "environment.yml"
 $envPath = "$webAppPath\env"
-$user = "IIS APPPOOL\D8TAVu"
+$user = $IIS_USER
 
 # Source and destination paths for app files
 $sourceAppPath = $rootDir
-$iisAppPath = "C:\inetpub\wwwroot\D8TAVu"
+$iisAppPath = $APP_ROOT
 
 # Function to verify permissions
 function Test-DirectoryPermissions {
@@ -25,7 +33,7 @@ function Test-DirectoryPermissions {
     )
     
     try {
-        Write-Host "`nChecking permissions for $path..."
+        Write-ConfigLog "Checking permissions for $path..."
         $acl = Get-Acl -Path $path
         $userHasFullControl = $false
         
@@ -38,17 +46,17 @@ function Test-DirectoryPermissions {
         }
         
         if ($userHasFullControl) {
-            Write-Host " $user has FullControl permissions on $path" -ForegroundColor Green
+            Write-ConfigLog "$user has FullControl permissions on $path" "Success"
             return $true
         } else {
-            Write-Host " $user does NOT have FullControl permissions on $path" -ForegroundColor Red
-            Write-Host "Current permissions:"
+            Write-ConfigLog "$user does NOT have FullControl permissions on $path" "Error"
+            Write-ConfigLog "Current permissions:"
             $acl.Access | Format-Table IdentityReference, FileSystemRights -AutoSize
             return $false
         }
     }
     catch {
-        Write-Host "Error checking permissions for $path : $_" -ForegroundColor Red
+        Write-ConfigLog "Error checking permissions for $path : $_" "Error"
         return $false
     }
 }
@@ -139,7 +147,7 @@ function Set-IcaclsPermissions {
     }
 }
 
-# Function to verify permissions using icacls
+# Function to verify icacls permissions
 function Test-IcaclsPermissions {
     param (
         [string]$path,
@@ -147,29 +155,21 @@ function Test-IcaclsPermissions {
     )
     
     try {
-        Write-Host "`nChecking permissions for $path..."
-        $acls = & icacls.exe $path
-        $userHasFullControl = $false
+        Write-ConfigLog "Checking icacls permissions for $path..."
+        $icaclsOutput = icacls $path
         
-        foreach ($acl in $acls) {
-            if ($acl -match [regex]::Escape($user) -and $acl -match "F") {
-                $userHasFullControl = $true
-                break
-            }
-        }
-        
-        if ($userHasFullControl) {
-            Write-Host " $user has FullControl permissions on $path" -ForegroundColor Green
+        if ($icaclsOutput -match [regex]::Escape($user)) {
+            Write-ConfigLog "Found $user in icacls output for $path" "Success"
             return $true
         } else {
-            Write-Host " $user does NOT have FullControl permissions on $path" -ForegroundColor Red
-            Write-Host "Current permissions:"
-            $acls | ForEach-Object { Write-Host $_ }
+            Write-ConfigLog "$user not found in icacls output for $path" "Error"
+            Write-ConfigLog "Current icacls:"
+            Write-ConfigLog $icaclsOutput
             return $false
         }
     }
     catch {
-        Write-Host "Error checking permissions for $path : $_" -ForegroundColor Red
+        Write-ConfigLog "Error checking icacls permissions for $path : $_" "Error"
         return $false
     }
 }
@@ -207,59 +207,65 @@ function Test-AllDirectoryPermissions {
     return $verificationSuccess
 }
 
-# If CheckPermissionsOnly is specified, only verify permissions and exit
+# Only check permissions if flag is set
 if ($CheckPermissionsOnly) {
-    $verificationSuccess = Test-AllDirectoryPermissions
-    if ($verificationSuccess) {
-        Write-Host "`nAll permissions are correctly set!" -ForegroundColor Green
-    }
-    else {
-        Write-Host "`nSome permissions need to be corrected. See details above." -ForegroundColor Yellow
-    }
-    exit
-}
-
-# Rest of the script for environment creation...
-# Check if environment already exists
-if (Test-Path $envPath) {
-    $response = Read-Host "Environment already exists at $envPath. Do you want to remove it and create a new one? (y/n)"
-    if ($response -eq 'y') {
-        Write-Host "Removing existing environment..."
-        try {
-            # Remove read-only attributes if any
-            Get-ChildItem -Path $envPath -Recurse -Force | ForEach-Object {
-                Remove-ReadOnlyAttribute -path $_.FullName
-            }
-            Remove-Item -Path $envPath -Recurse -Force
-            Write-Host "Existing environment removed successfully."
-        }
-        catch {
-            Write-Host "Error removing existing environment: $_"
-            exit 1
-        }
-    }
-    else {
-        Write-Host "Operation cancelled by user."
+    Write-ConfigLog "Checking permissions only..."
+    $permissionsOk = Test-DirectoryPermissions -path $APP_ROOT -user $IIS_USER
+    $icaclsOk = Test-IcaclsPermissions -path $APP_ROOT -user $IIS_USER
+    
+    if ($permissionsOk -and $icaclsOk) {
+        Write-ConfigLog "All permissions are correctly set" "Success"
         exit 0
+    } else {
+        Write-ConfigLog "Permissions check failed" "Error"
+        exit 1
     }
 }
 
-# Create directory if it doesn't exist
-if (-not (Test-Path $webAppPath)) {
-    New-Item -ItemType Directory -Path $webAppPath -Force
+# Create environment
+Write-ConfigLog "Creating Python environment in $APP_ROOT..."
+
+# Verify environment.yml exists
+$envYamlPath = Join-Path $rootDir "environment.yml"
+if (-not (Test-Path $envYamlPath)) {
+    Write-ConfigLog "environment.yml not found at: $envYamlPath" "Error"
+    exit 1
 }
 
-# Create the conda environment
-Write-Host "`nCreating conda environment..."
+# Create environment using conda
+$success = $false
 try {
-    & "C:\Users\a-gon\anaconda3\Scripts\conda.exe" env create -f $envYamlPath -p $envPath
-    if ($LASTEXITCODE -ne 0) {
-        throw "Conda environment creation failed with exit code $LASTEXITCODE"
+    # Activate conda
+    Write-ConfigLog "Activating Conda..."
+    $condaPath = Join-Path $CONDA_PATH "Scripts\activate.bat"
+    if (-not (Test-Path $condaPath)) {
+        Write-ConfigLog "Conda activation script not found at: $condaPath" "Error"
+        exit 1
+    }
+    
+    # Create environment
+    Write-ConfigLog "Creating environment from $envYamlPath..."
+    $envPath = Join-Path $APP_ROOT "env"
+    & $condaPath
+    conda env create -f $envYamlPath -p $envPath
+    if ($LASTEXITCODE -eq 0) {
+        Write-ConfigLog "Environment created successfully" "Success"
+        $success = $true
+    } else {
+        Write-ConfigLog "Failed to create environment" "Error"
     }
 }
 catch {
-    Write-Host "Error creating conda environment: $_"
-    exit 1
+    Write-ConfigLog "Error creating environment: $_" "Error"
+}
+
+# Verify permissions after creation
+$verificationSuccess = $false
+if ($success) {
+    Write-ConfigLog "Verifying permissions..."
+    $permissionsOk = Test-DirectoryPermissions -path $APP_ROOT -user $IIS_USER
+    $icaclsOk = Test-IcaclsPermissions -path $APP_ROOT -user $IIS_USER
+    $verificationSuccess = $permissionsOk -and $icaclsOk
 }
 
 # Set up application files
@@ -293,18 +299,18 @@ foreach ($dir in $mainDirs) {
     }
 }
 
-# Verify permissions
-$verificationSuccess = Test-AllDirectoryPermissions
-
 if ($success -and $verificationSuccess) {
+    Write-ConfigLog "Environment created and permissions set successfully!" "Success"
     Write-Host "`nEnvironment created and permissions set successfully!" -ForegroundColor Green
     Write-Host "Next steps:"
     Write-Host "1. Update your web.config to use the new environment path:"
     Write-Host "   $envPath\python.exe"
-    Write-Host "2. Restart the IIS application pool"
-}
-else {
+    Write-Host "2. Make sure the application pool identity has access to the environment"
+    Write-Host "3. Restart IIS using scripts\restart_iis.ps1"
+} else {
+    Write-ConfigLog "Environment setup failed. Please check the logs for details." "Error"
     Write-Host "`nEnvironment was created but there were some issues with permissions." -ForegroundColor Yellow
     Write-Host "Please check the messages above for details."
     Write-Host "You may need to run the script again or set permissions manually."
+    exit 1
 }
