@@ -1,3 +1,6 @@
+[CmdletBinding(SupportsShouldProcess=$true)]
+param()
+
 # =============================================================================
 # D8TAVu IIS Master Setup Script
 # =============================================================================
@@ -49,6 +52,75 @@ if ($VERIFY_ADMIN) {
 
 Write-ConfigLog "Starting IIS setup for $APP_NAME"
 
+# Function to execute scripts with WhatIf support
+function Invoke-SetupScript {
+    param(
+        [string]$Path,
+        [string]$Description
+    )
+
+    if (-not (Test-Path $Path)) {
+        $errorMessage = "Script not found: $Path"
+        Write-Host $errorMessage -ForegroundColor Red
+        Write-ConfigLog $errorMessage "Error"
+        if ($ABORT_ON_ERROR) { exit 1 }
+        return $false
+    }
+
+    $extension = [System.IO.Path]::GetExtension($Path)
+    $errorOccurred = $false
+
+    try {
+        switch ($extension) {
+            ".ps1" {
+                if ($PSCmdlet.ShouldProcess($Path, $Description)) {
+                    & $Path
+                    if ($LASTEXITCODE -ne 0) { $errorOccurred = $true }
+                } else {
+                    Write-ConfigLog "[WhatIf] Would execute PowerShell script: $Path" "Info"
+                    Write-ConfigLog "[WhatIf] Description: $Description" "Info"
+                }
+            }
+            ".bat" {
+                if ($PSCmdlet.ShouldProcess($Path, $Description)) {
+                    $process = Start-Process -FilePath $Path -Wait -PassThru -NoNewWindow
+                    if ($process.ExitCode -ne 0) { $errorOccurred = $true }
+                } else {
+                    Write-ConfigLog "[WhatIf] Would execute batch script: $Path" "Info"
+                    Write-ConfigLog "[WhatIf] Description: $Description" "Info"
+                }
+            }
+            default {
+                $errorMessage = "Unsupported script type: $extension"
+                Write-Host $errorMessage -ForegroundColor Red
+                Write-ConfigLog $errorMessage "Error"
+                if ($ABORT_ON_ERROR) { exit 1 }
+                return $false
+            }
+        }
+
+        if ($errorOccurred) {
+            $errorMessage = "Script failed: $Path"
+            Write-Host $errorMessage -ForegroundColor Red
+            Write-ConfigLog $errorMessage "Error"
+            if ($ABORT_ON_ERROR) { exit 1 }
+            return $false
+        }
+        else {
+            Write-Host "Success: $Description" -ForegroundColor Green
+            Write-ConfigLog "Success: $Description"
+            return $true
+        }
+    }
+    catch {
+        $errorMessage = "Error executing $Path`: $($_.Exception.Message)"
+        Write-Host $errorMessage -ForegroundColor Red
+        Write-ConfigLog $errorMessage "Error"
+        if ($ABORT_ON_ERROR) { exit 1 }
+        return $false
+    }
+}
+
 # Define script sequence
 $scripts = @(
     @{
@@ -95,62 +167,16 @@ if ($RESTART_IIS_ON_COMPLETE) {
 Write-Host "`nScript sequence:" -ForegroundColor Cyan
 $scripts | ForEach-Object { Write-Host "- $($_.Description)" }
 
-Write-Host "`nPress any key to continue or Ctrl+C to abort..."
-$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+if (-not $WhatIfPreference) {
+    Write-Host "`nPress any key to continue or Ctrl+C to abort..."
+    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+}
 
 foreach ($script in $scripts) {
     Write-Host "`nExecuting: $($script.Description)" -ForegroundColor Cyan
     Write-ConfigLog "Executing: $($script.Description)"
-
-    # Check if script file exists
-    if (-not (Test-Path $script.Path)) {
-        $errorMessage = "Script not found: $($script.Path)"
-        Write-Host $errorMessage -ForegroundColor Red
-        Write-ConfigLog $errorMessage "Error"
-        if ($ABORT_ON_ERROR) { exit 1 }
-        continue
-    }
-
-    # Execute script based on file extension
-    $extension = [System.IO.Path]::GetExtension($script.Path)
-    $errorOccurred = $false
-
-    try {
-        switch ($extension) {
-            ".ps1" {
-                & $script.Path
-                if ($LASTEXITCODE -ne 0) { $errorOccurred = $true }
-            }
-            ".bat" {
-                $process = Start-Process -FilePath $script.Path -Wait -PassThru -NoNewWindow
-                if ($process.ExitCode -ne 0) { $errorOccurred = $true }
-            }
-            default {
-                $errorMessage = "Unsupported script type: $extension"
-                Write-Host $errorMessage -ForegroundColor Red
-                Write-ConfigLog $errorMessage "Error"
-                if ($ABORT_ON_ERROR) { exit 1 }
-                continue
-            }
-        }
-
-        if ($errorOccurred) {
-            $errorMessage = "Script failed: $($script.Path)"
-            Write-Host $errorMessage -ForegroundColor Red
-            Write-ConfigLog $errorMessage "Error"
-            if ($ABORT_ON_ERROR) { exit 1 }
-        }
-        else {
-            Write-Host "Success: $($script.Description)" -ForegroundColor Green
-            Write-ConfigLog "Success: $($script.Description)"
-        }
-    }
-    catch {
-        $errorMessage = "Error executing $($script.Path): $_"
-        Write-Host $errorMessage -ForegroundColor Red
-        Write-ConfigLog $errorMessage "Error"
-        if ($ABORT_ON_ERROR) { exit 1 }
-    }
+    
+    Invoke-SetupScript -Path $script.Path -Description $script.Description
 }
 
 Write-Host "`nSetup completed successfully!" -ForegroundColor Green

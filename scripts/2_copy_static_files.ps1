@@ -1,3 +1,6 @@
+[CmdletBinding(SupportsShouldProcess=$true)]
+param()
+
 # Import configuration
 $configPath = Join-Path $PSScriptRoot "config.ps1"
 if (-not (Test-Path $configPath)) {
@@ -5,6 +8,22 @@ if (-not (Test-Path $configPath)) {
     exit 1
 }
 . $configPath
+
+function Invoke-WithWhatIf {
+    param(
+        [string]$Command,
+        [string]$Description,
+        [string]$Target = ""
+    )
+    
+    if ($PSCmdlet.ShouldProcess($Target, $Description)) {
+        Write-ConfigLog $Description
+        Invoke-Expression $Command
+    } else {
+        Write-ConfigLog "[WhatIf] Would execute: $Command" "Info"
+        Write-ConfigLog $Description
+    }
+}
 
 # Define paths
 $sourcePath = Split-Path -Parent $PSScriptRoot
@@ -20,7 +39,9 @@ $directories = @(
 foreach ($dir in $directories) {
     if (-not (Test-Path $dir)) {
         Write-ConfigLog "Creating directory: $dir"
-        New-Item -ItemType Directory -Path $dir -Force
+        Invoke-WithWhatIf -Command "New-Item -ItemType Directory -Path '$dir' -Force" `
+                         -Description "Creating directory: $dir" `
+                         -Target $dir
     }
 }
 
@@ -34,7 +55,9 @@ $filesToCopy = @{
 foreach ($source in $filesToCopy.Keys) {
     $destination = $filesToCopy[$source]
     if (Test-Path $source) {
-        Copy-Item $source $destination -Force
+        Invoke-WithWhatIf -Command "Copy-Item '$source' '$destination' -Force" `
+                         -Description "Copying: $source -> $destination" `
+                         -Target $destination
         Write-ConfigLog "Copied: $source -> $destination"
     } else {
         Write-ConfigLog "Source file not found: $source" "Warning"
@@ -55,23 +78,33 @@ foreach ($path in $paths) {
     try {
         # Take ownership
         if ((Get-Item $path) -is [System.IO.DirectoryInfo]) {
-            $result = Start-Process "takeown.exe" -ArgumentList "/F `"$path`" /R /D Y" -NoNewWindow -Wait -PassThru
-            if ($result.ExitCode -eq 0) {
-                $result = Start-Process "icacls.exe" -ArgumentList "`"$path`" /grant:r `"$IIS_USER`":(OI)(CI)F /T /Q" -NoNewWindow -Wait -PassThru
-                $result = Start-Process "icacls.exe" -ArgumentList "`"$path`" /grant:r `"BUILTIN\IIS_IUSRS`":(OI)(CI)F /T /Q" -NoNewWindow -Wait -PassThru
-                Write-ConfigLog "Set directory permissions successfully"
-            } else {
-                Write-ConfigLog "Failed to take ownership of directory: $path" "Error"
-            }
+            Invoke-WithWhatIf -Command "Start-Process 'takeown.exe' -ArgumentList '/F `"$path`" /R /D Y' -NoNewWindow -Wait -PassThru" `
+                             -Description "Taking ownership of directory: $path" `
+                             -Target $path
+            
+            Invoke-WithWhatIf -Command "Start-Process 'icacls.exe' -ArgumentList '`"$path`" /grant:r `"$IIS_USER`":(OI)(CI)F /T /Q' -NoNewWindow -Wait -PassThru" `
+                             -Description "Setting IIS user permissions on directory: $path" `
+                             -Target $path
+            
+            Invoke-WithWhatIf -Command "Start-Process 'icacls.exe' -ArgumentList '`"$path`" /grant:r `"BUILTIN\IIS_IUSRS`":(OI)(CI)F /T /Q' -NoNewWindow -Wait -PassThru" `
+                             -Description "Setting IIS_IUSRS permissions on directory: $path" `
+                             -Target $path
+            
+            Write-ConfigLog "Set directory permissions successfully"
         } else {
-            $result = Start-Process "takeown.exe" -ArgumentList "/F `"$path`"" -NoNewWindow -Wait -PassThru
-            if ($result.ExitCode -eq 0) {
-                $result = Start-Process "icacls.exe" -ArgumentList "`"$path`" /grant:r `"$IIS_USER`":F /Q" -NoNewWindow -Wait -PassThru
-                $result = Start-Process "icacls.exe" -ArgumentList "`"$path`" /grant:r `"BUILTIN\IIS_IUSRS`":F /Q" -NoNewWindow -Wait -PassThru
-                Write-ConfigLog "Set file permissions successfully"
-            } else {
-                Write-ConfigLog "Failed to take ownership of file: $path" "Error"
-            }
+            Invoke-WithWhatIf -Command "Start-Process 'takeown.exe' -ArgumentList '/F `"$path`"' -NoNewWindow -Wait -PassThru" `
+                             -Description "Taking ownership of file: $path" `
+                             -Target $path
+            
+            Invoke-WithWhatIf -Command "Start-Process 'icacls.exe' -ArgumentList '`"$path`" /grant:r `"$IIS_USER`":F /Q' -NoNewWindow -Wait -PassThru" `
+                             -Description "Setting IIS user permissions on file: $path" `
+                             -Target $path
+            
+            Invoke-WithWhatIf -Command "Start-Process 'icacls.exe' -ArgumentList '`"$path`" /grant:r `"BUILTIN\IIS_IUSRS`":F /Q' -NoNewWindow -Wait -PassThru" `
+                             -Description "Setting IIS_IUSRS permissions on file: $path" `
+                             -Target $path
+            
+            Write-ConfigLog "Set file permissions successfully"
         }
     }
     catch {
@@ -81,6 +114,8 @@ foreach ($path in $paths) {
 }
 
 Write-ConfigLog "Restarting IIS..."
-iisreset
+Invoke-WithWhatIf -Command "iisreset" `
+                 -Description "Restarting IIS" `
+                 -Target "IIS"
 
 Write-ConfigLog "Static files copied and permissions set successfully"

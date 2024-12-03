@@ -1,3 +1,6 @@
+[CmdletBinding(SupportsShouldProcess=$true)]
+param()
+
 # Import configuration
 $configPath = Join-Path $PSScriptRoot "config.ps1"
 if (-not (Test-Path $configPath)) {
@@ -19,28 +22,43 @@ if ($rewriteModule) {
 } else {
     # Download the installer
     Write-ConfigLog "Downloading URL Rewrite Module installer..."
-    try {
-        Invoke-WebRequest -Uri $installerUrl -OutFile $installerPath
-        Write-ConfigLog "Download completed successfully" "Success"
-    }
-    catch {
-        Write-ConfigLog "Error downloading URL Rewrite Module: $_" "Error"
-        if ($ABORT_ON_ERROR) { exit 1 }
+    if ($PSCmdlet.ShouldProcess($installerUrl, "Download URL Rewrite Module")) {
+        try {
+            Invoke-WebRequest -Uri $installerUrl -OutFile $installerPath
+            Write-ConfigLog "Download completed successfully" "Success"
+        }
+        catch {
+            Write-ConfigLog "Error downloading URL Rewrite Module: $($_.Exception.Message)" "Error"
+            if ($ABORT_ON_ERROR) { exit 1 }
+        }
+    } else {
+        Write-ConfigLog "[WhatIf] Would download URL Rewrite Module from: $installerUrl" "Info"
+        Write-ConfigLog "[WhatIf] Would save to: $installerPath" "Info"
     }
     
     # Install the module
     Write-ConfigLog "Installing URL Rewrite Module..."
-    try {
-        Start-Process msiexec.exe -ArgumentList "/i `"$installerPath`" /quiet /norestart" -Wait
-        Write-ConfigLog "Installation completed successfully" "Success"
-    }
-    catch {
-        Write-ConfigLog "Error installing URL Rewrite Module: $_" "Error"
-        if ($ABORT_ON_ERROR) { exit 1 }
+    if ($PSCmdlet.ShouldProcess("URL Rewrite Module", "Install MSI")) {
+        try {
+            Start-Process msiexec.exe -ArgumentList "/i `"$installerPath`" /quiet /norestart" -Wait
+            Write-ConfigLog "Installation completed successfully" "Success"
+        }
+        catch {
+            Write-ConfigLog "Error installing URL Rewrite Module: $($_.Exception.Message)" "Error"
+            if ($ABORT_ON_ERROR) { exit 1 }
+        }
+    } else {
+        Write-ConfigLog "[WhatIf] Would install URL Rewrite Module using msiexec" "Info"
+        Write-ConfigLog "[WhatIf] Installer path: $installerPath" "Info"
+        Write-ConfigLog "[WhatIf] Arguments: /i /quiet /norestart" "Info"
     }
     
     # Clean up
-    Remove-Item $installerPath -Force
+    if ($PSCmdlet.ShouldProcess($installerPath, "Remove installer")) {
+        Remove-Item $installerPath -Force
+    } else {
+        Write-ConfigLog "[WhatIf] Would remove installer file: $installerPath" "Info"
+    }
 }
 
 # Import IIS module
@@ -66,27 +84,41 @@ function Add-RewriteRule {
     try {
         if ($existing) {
             Write-ConfigLog "Updating rewrite rule: $Name"
-            Set-WebConfiguration -Filter "$rulePath/match/@url" -Value $Pattern -PSPath $webAppPath
-            Set-WebConfiguration -Filter "$rulePath/action/@url" -Value $Action -PSPath $webAppPath
+            if ($PSCmdlet.ShouldProcess("$Name rule", "Update URL Rewrite rule")) {
+                Set-WebConfiguration -Filter "$rulePath/match/@url" -Value $Pattern -PSPath $webAppPath
+                Set-WebConfiguration -Filter "$rulePath/action/@url" -Value $Action -PSPath $webAppPath
+            } else {
+                Write-ConfigLog "[WhatIf] Would update URL Rewrite rule: $Name" "Info"
+                Write-ConfigLog "[WhatIf] Pattern: $Pattern" "Info"
+                Write-ConfigLog "[WhatIf] Action: $Action" "Info"
+            }
         } else {
             Write-ConfigLog "Adding new rewrite rule: $Name"
-            Add-WebConfiguration -Filter $configPath -PSPath $webAppPath -Value @{
-                name = $Name
-                patternSyntax = "Regular Expressions"
-                stopProcessing = "True"
-            }
-            Set-WebConfiguration -Filter "$rulePath/match" -PSPath $webAppPath -Value @{
-                url = $Pattern
-            }
-            Set-WebConfiguration -Filter "$rulePath/action" -PSPath $webAppPath -Value @{
-                type = "Rewrite"
-                url = $Action
+            if ($PSCmdlet.ShouldProcess("$Name rule", "Add URL Rewrite rule")) {
+                Add-WebConfiguration -Filter $configPath -PSPath $webAppPath -Value @{
+                    name = $Name
+                    patternSyntax = "Regular Expressions"
+                    stopProcessing = "True"
+                }
+                Set-WebConfiguration -Filter "$rulePath/match" -PSPath $webAppPath -Value @{
+                    url = $Pattern
+                }
+                Set-WebConfiguration -Filter "$rulePath/action" -PSPath $webAppPath -Value @{
+                    type = "Rewrite"
+                    url = $Action
+                }
+            } else {
+                Write-ConfigLog "[WhatIf] Would add URL Rewrite rule: $Name" "Info"
+                Write-ConfigLog "[WhatIf] Pattern: $Pattern" "Info"
+                Write-ConfigLog "[WhatIf] Action: $Action" "Info"
+                Write-ConfigLog "[WhatIf] Pattern Syntax: Regular Expressions" "Info"
+                Write-ConfigLog "[WhatIf] Stop Processing: True" "Info"
             }
         }
         Write-ConfigLog "Rule $Name configured successfully" "Success"
     }
     catch {
-        Write-ConfigLog "Error configuring rule $Name : $_" "Error"
+        Write-ConfigLog "Error configuring rule $Name : $($_.Exception.Message)" "Error"
         if ($ABORT_ON_ERROR) { exit 1 }
     }
 }

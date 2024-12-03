@@ -1,3 +1,6 @@
+[CmdletBinding(SupportsShouldProcess=$true)]
+param()
+
 # Import configuration
 $configPath = Join-Path $PSScriptRoot "config.ps1"
 if (-not (Test-Path $configPath)) {
@@ -25,13 +28,23 @@ function Set-FastCgiEnvironmentVariable {
     
     if ($existing) {
         Write-ConfigLog "Updating environment variable: $Name"
-        Set-WebConfiguration -Filter "$configPath/environmentVariables/environmentVariable[@name='$Name']/@value" -Value $Value -PSPath "MACHINE/WEBROOT/APPHOST"
+        if ($PSCmdlet.ShouldProcess("$Name", "Update FastCGI environment variable")) {
+            Set-WebConfiguration -Filter "$configPath/environmentVariables/environmentVariable[@name='$Name']/@value" -Value $Value -PSPath "MACHINE/WEBROOT/APPHOST"
+        } else {
+            Write-ConfigLog "[WhatIf] Would update FastCGI environment variable: $Name" "Info"
+            Write-ConfigLog "[WhatIf] New value: $Value" "Info"
+        }
     } else {
         Write-ConfigLog "Adding environment variable: $Name"
-        Add-WebConfiguration -Filter "$configPath/environmentVariables" -Value @{
-            name=$Name
-            value=$Value
-        } -PSPath "MACHINE/WEBROOT/APPHOST"
+        if ($PSCmdlet.ShouldProcess("$Name", "Add FastCGI environment variable")) {
+            Add-WebConfiguration -Filter "$configPath/environmentVariables" -Value @{
+                name=$Name
+                value=$Value
+            } -PSPath "MACHINE/WEBROOT/APPHOST"
+        } else {
+            Write-ConfigLog "[WhatIf] Would add FastCGI environment variable: $Name" "Info"
+            Write-ConfigLog "[WhatIf] Value: $Value" "Info"
+        }
     }
 }
 
@@ -44,14 +57,19 @@ Set-FastCgiEnvironmentVariable -Name "MPLCONFIGDIR" -Value "$APP_ROOT\temp"
 $tempDir = Join-Path $APP_ROOT "temp"
 if (!(Test-Path $tempDir)) {
     Write-ConfigLog "Creating temp directory: $tempDir"
-    New-Item -ItemType Directory -Path $tempDir -Force
-    
-    # Set permissions for temp directory
-    $acl = Get-Acl $tempDir
-    $permission = New-Object System.Security.AccessControl.FileSystemAccessRule($IIS_USER, "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
-    $acl.SetAccessRule($permission)
-    Set-Acl -Path $tempDir -AclObject $acl
-    Write-ConfigLog "Set permissions for temp directory"
+    if ($PSCmdlet.ShouldProcess($tempDir, "Create temp directory")) {
+        New-Item -ItemType Directory -Path $tempDir -Force
+        
+        # Set permissions for temp directory
+        $acl = Get-Acl $tempDir
+        $permission = New-Object System.Security.AccessControl.FileSystemAccessRule($IIS_USER, "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
+        $acl.SetAccessRule($permission)
+        Set-Acl -Path $tempDir -AclObject $acl
+        Write-ConfigLog "Set permissions for temp directory"
+    } else {
+        Write-ConfigLog "[WhatIf] Would create temp directory: $tempDir" "Info"
+        Write-ConfigLog "[WhatIf] Would set FullControl permissions for $IIS_USER" "Info"
+    }
 }
 
 Write-ConfigLog "Environment variables setup completed"

@@ -130,25 +130,46 @@ function Test-Configuration {
 function Write-ConfigLog {
     param(
         [string]$Message,
-        [string]$Level = "Info"
+        [string]$Type = "Info"
     )
     
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logMessage = "[$timestamp] [$Level] $Message"
-    
-    # Create log directory if it doesn't exist
-    if (-not (Test-Path $LOG_DIR)) {
-        New-Item -ItemType Directory -Path $LOG_DIR -Force | Out-Null
+    $logDir = Join-Path $APP_ROOT "logs"
+    if (-not (Test-Path $logDir)) {
+        New-Item -ItemType Directory -Path $logDir -Force | Out-Null
     }
     
-    Add-Content -Path $SETUP_LOG -Value $logMessage
+    $logFile = Join-Path $logDir "setup.log"
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $logMessage = "[$timestamp] [$Type] $Message"
     
-    switch ($Level) {
-        "Error" { Write-Host $Message -ForegroundColor Red }
-        "Warning" { Write-Host $Message -ForegroundColor Yellow }
-        default { Write-Host $Message }
+    Add-Content -Path $logFile -Value $logMessage
+    
+    # Also write to console with color based on type
+    switch ($Type.ToLower()) {
+        "error"   { Write-Host $Message -ForegroundColor Red }
+        "warning" { Write-Host $Message -ForegroundColor Yellow }
+        "success" { Write-Host $Message -ForegroundColor Green }
+        default   { Write-Host $Message }
     }
 }
 
-# Export configuration
-Export-ModuleMember -Variable * -Function *
+function Invoke-WithWhatIf {
+    param(
+        [string]$Command,
+        [string]$Description,
+        [string]$Target = ""
+    )
+    
+    if ($PSCmdlet.ShouldProcess($Target, $Description)) {
+        Write-ConfigLog $Description
+        Invoke-Expression $Command
+    } else {
+        Write-ConfigLog "[WhatIf] Would execute: $Command" "Info"
+        Write-ConfigLog $Description
+    }
+}
+
+# Only export members if being imported as a module
+if ($MyInvocation.Line -match 'Import-Module') {
+    Export-ModuleMember -Function Write-ConfigLog, Invoke-WithWhatIf -Variable *
+}

@@ -1,3 +1,14 @@
+[CmdletBinding(SupportsShouldProcess=$true)]
+param()
+
+# Import configuration
+$configPath = Join-Path $PSScriptRoot "config.ps1"
+if (-not (Test-Path $configPath)) {
+    Write-Host "Configuration file not found: $configPath" -ForegroundColor Red
+    exit 1
+}
+. $configPath
+
 # Get the root directory (one level up from scripts)
 $rootDir = Split-Path -Parent $PSScriptRoot
 
@@ -14,24 +25,29 @@ function Remove-ReadOnlyAttribute {
     
     try {
         if (Test-Path $path) {
-            # Remove read-only from the item itself
-            $item = Get-Item $path -Force
-            if ($item.Attributes -band [System.IO.FileAttributes]::ReadOnly) {
-                $item.Attributes = $item.Attributes -bxor [System.IO.FileAttributes]::ReadOnly
-            }
-            
-            # If it's a directory, process contents
-            if ($item.PSIsContainer) {
-                Get-ChildItem $path -Recurse -Force | ForEach-Object {
-                    if ($_.Attributes -band [System.IO.FileAttributes]::ReadOnly) {
-                        $_.Attributes = $_.Attributes -bxor [System.IO.FileAttributes]::ReadOnly
+            if ($PSCmdlet.ShouldProcess($path, "Remove read-only attributes")) {
+                # Remove read-only from the item itself
+                $item = Get-Item $path -Force
+                if ($item.Attributes -band [System.IO.FileAttributes]::ReadOnly) {
+                    $item.Attributes = $item.Attributes -bxor [System.IO.FileAttributes]::ReadOnly
+                }
+                
+                # If it's a directory, process contents
+                if ($item.PSIsContainer) {
+                    Get-ChildItem $path -Recurse -Force | ForEach-Object {
+                        if ($_.Attributes -band [System.IO.FileAttributes]::ReadOnly) {
+                            $_.Attributes = $_.Attributes -bxor [System.IO.FileAttributes]::ReadOnly
+                        }
                     }
                 }
+                Write-ConfigLog "Removed read-only attributes from $path"
+            } else {
+                Write-ConfigLog "[WhatIf] Would remove read-only attributes from $path" "Info"
             }
         }
     }
     catch {
-        Write-Host "Warning: Could not remove read-only attribute from $path : $_" -ForegroundColor Yellow
+        Write-ConfigLog "Warning: Could not remove read-only attribute from $path : $($_.Exception.Message)" "Warning"
     }
 }
 
@@ -43,18 +59,26 @@ function Set-IcaclsPermissions {
     )
     
     try {
-        Write-Host "`nSetting permissions for $path using icacls..."
-        $result = Start-Process "icacls.exe" -ArgumentList "`"$path`" /grant `"$user`":(OI)(CI)F /T /Q" -NoNewWindow -Wait -PassThru
-        if ($result.ExitCode -eq 0) {
-            Write-Host "Successfully set permissions for $path" -ForegroundColor Green
-            return $true
+        Write-ConfigLog "Setting permissions for $path using icacls..."
+        if ($PSCmdlet.ShouldProcess($path, "Set ICACLS permissions for $user")) {
+            $result = Start-Process "icacls.exe" -ArgumentList "`"$path`" /grant `"$user`":(OI)(CI)F /T /Q" -NoNewWindow -Wait -PassThru
+            if ($result.ExitCode -eq 0) {
+                Write-ConfigLog "Successfully set permissions for $path" "Success"
+                return $true
+            } else {
+                Write-ConfigLog "Failed to set permissions for $path. Exit code: $($result.ExitCode)" "Error"
+                return $false
+            }
         } else {
-            Write-Host "Failed to set permissions for $path. Exit code: $($result.ExitCode)" -ForegroundColor Red
-            return $false
+            Write-ConfigLog "[WhatIf] Would set permissions using icacls" "Info"
+            Write-ConfigLog "[WhatIf] Path: $path" "Info"
+            Write-ConfigLog "[WhatIf] User: $user" "Info"
+            Write-ConfigLog "[WhatIf] Permissions: Full Control (OI)(CI)F" "Info"
+            return $true
         }
     }
     catch {
-        Write-Host "Error setting permissions for $path : $_" -ForegroundColor Red
+        Write-ConfigLog "Error setting permissions for $path : $($_.Exception.Message)" "Error"
         return $false
     }
 }
@@ -72,7 +96,7 @@ $mainDirs = @(
 $success = $true
 foreach ($dir in $mainDirs) {
     if (Test-Path $dir) {
-        Write-Host "`nProcessing directory: $dir"
+        Write-ConfigLog "Processing directory: $dir"
         
         # Remove read-only attributes
         Remove-ReadOnlyAttribute -path $dir
@@ -83,14 +107,14 @@ foreach ($dir in $mainDirs) {
         }
     }
     else {
-        Write-Host "Directory not found: $dir" -ForegroundColor Red
+        Write-ConfigLog "Directory not found: $dir" "Error"
         $success = $false
     }
 }
 
 if ($success) {
-    Write-Host "`nAll permissions have been set successfully!" -ForegroundColor Green
+    Write-ConfigLog "All permissions have been set successfully!" "Success"
 }
 else {
-    Write-Host "`nThere were some issues setting permissions. Please check the messages above." -ForegroundColor Yellow
+    Write-ConfigLog "There were some issues setting permissions. Please check the messages above." "Warning"
 }

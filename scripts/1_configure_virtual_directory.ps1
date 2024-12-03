@@ -1,3 +1,6 @@
+[CmdletBinding(SupportsShouldProcess=$true)]
+param()
+
 # Import configuration
 $configPath = Join-Path $PSScriptRoot "config.ps1"
 if (-not (Test-Path $configPath)) {
@@ -25,12 +28,23 @@ Write-ConfigLog "Configuring virtual directory for D8TAVu..."
 $virtualDirPath = "IIS:\Sites\$siteName\$appName\$virtualDirName"
 if (Test-Path $virtualDirPath) {
     Write-ConfigLog "Virtual directory already exists. Removing..."
-    Remove-Item $virtualDirPath -Recurse -Force
+    if ($PSCmdlet.ShouldProcess($virtualDirPath, "Remove Virtual Directory")) {
+        Remove-Item $virtualDirPath -Recurse -Force
+    } else {
+        Write-ConfigLog "[WhatIf] Would remove virtual directory: $virtualDirPath" "Info"
+    }
 }
 
 # Create virtual directory
 Write-ConfigLog "Creating virtual directory..."
-New-WebVirtualDirectory -Site $siteName -Application $appName -Name $virtualDirName -PhysicalPath $physicalPath
+if ($PSCmdlet.ShouldProcess("$siteName/$appName/$virtualDirName", "Create Virtual Directory")) {
+    New-WebVirtualDirectory -Site $siteName -Application $appName -Name $virtualDirName -PhysicalPath $physicalPath
+} else {
+    Write-ConfigLog "[WhatIf] Would create virtual directory: $virtualDirName" "Info"
+    Write-ConfigLog "[WhatIf] Site: $siteName" "Info"
+    Write-ConfigLog "[WhatIf] Application: $appName" "Info"
+    Write-ConfigLog "[WhatIf] Physical Path: $physicalPath" "Info"
+}
 
 # Set directory permissions
 Write-ConfigLog "Setting directory permissions..."
@@ -56,15 +70,21 @@ foreach ($access in $acl.Access) {
 }
 
 if (-not $hasPermission) {
-    $acl.AddAccessRule($accessRule)
-    try {
-        Set-Acl -Path $physicalPath -AclObject $acl
-        Write-ConfigLog "Added permissions for $IIS_USER"
-    }
-    catch {
-        $errorMessage = "Error setting permissions: $_"
-        Write-ConfigLog $errorMessage "Error"
-        if ($ABORT_ON_ERROR) { exit 1 }
+    if ($PSCmdlet.ShouldProcess($physicalPath, "Set ACL permissions for $IIS_USER")) {
+        $acl.AddAccessRule($accessRule)
+        try {
+            Set-Acl -Path $physicalPath -AclObject $acl
+            Write-ConfigLog "Added permissions for $IIS_USER"
+        }
+        catch {
+            $errorMessage = "Error setting permissions: $($_.Exception.Message)"
+            Write-ConfigLog $errorMessage "Error"
+            if ($ABORT_ON_ERROR) { exit 1 }
+        }
+    } else {
+        Write-ConfigLog "[WhatIf] Would add permissions for $IIS_USER" "Info"
+        Write-ConfigLog "[WhatIf] Path: $physicalPath" "Info"
+        Write-ConfigLog "[WhatIf] Permissions: $REQUIRED_PERMISSIONS" "Info"
     }
 }
 

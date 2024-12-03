@@ -1,4 +1,4 @@
-[CmdletBinding()]
+[CmdletBinding(SupportsShouldProcess=$true)]
 param(
     [Parameter()]
     [switch]$CheckPermissionsOnly
@@ -102,15 +102,27 @@ function Copy-AppFiles {
         
         # Create destination if it doesn't exist
         if (-not (Test-Path $destination)) {
-            New-Item -ItemType Directory -Path $destination -Force | Out-Null
+            if ($PSCmdlet.ShouldProcess($destination, "Create Directory")) {
+                New-Item -ItemType Directory -Path $destination -Force | Out-Null
+            } else {
+                Write-ConfigLog "[WhatIf] Would create directory: $destination" "Info"
+            }
         }
         
         # Copy all files except env directory and any existing web.config
         Get-ChildItem -Path $source -Exclude "env","web.config" | ForEach-Object {
             if ($_.PSIsContainer) {
-                Copy-Item -Path $_.FullName -Destination $destination -Recurse -Force
+                if ($PSCmdlet.ShouldProcess($_.FullName, "Copy Directory to $destination")) {
+                    Copy-Item -Path $_.FullName -Destination $destination -Recurse -Force
+                } else {
+                    Write-ConfigLog "[WhatIf] Would copy directory: $($_.FullName) to $destination" "Info"
+                }
             } else {
-                Copy-Item -Path $_.FullName -Destination $destination -Force
+                if ($PSCmdlet.ShouldProcess($_.FullName, "Copy File to $destination")) {
+                    Copy-Item -Path $_.FullName -Destination $destination -Force
+                } else {
+                    Write-ConfigLog "[WhatIf] Would copy file: $($_.FullName) to $destination" "Info"
+                }
             }
         }
         
@@ -118,7 +130,7 @@ function Copy-AppFiles {
         return $true
     }
     catch {
-        Write-Host "Error copying app files: $_" -ForegroundColor Red
+        Write-Host "Error copying app files: $($_.Exception.Message)" -ForegroundColor Red
         return $false
     }
 }
@@ -132,17 +144,22 @@ function Set-IcaclsPermissions {
     
     try {
         Write-Host "`nSetting permissions for $path using icacls..."
-        $result = Start-Process "icacls.exe" -ArgumentList "`"$path`" /grant `"$user`":(OI)(CI)F /T /Q" -NoNewWindow -Wait -PassThru
-        if ($result.ExitCode -eq 0) {
-            Write-Host "Successfully set permissions for $path" -ForegroundColor Green
-            return $true
+        if ($PSCmdlet.ShouldProcess($path, "Set ICACLS permissions for $user")) {
+            $result = Start-Process "icacls.exe" -ArgumentList "`"$path`" /grant `"$user`":(OI)(CI)F /T /Q" -NoNewWindow -Wait -PassThru
+            if ($result.ExitCode -eq 0) {
+                Write-Host "Successfully set permissions for $path" -ForegroundColor Green
+                return $true
+            } else {
+                Write-Host "Failed to set permissions for $path. Exit code: $($result.ExitCode)" -ForegroundColor Red
+                return $false
+            }
         } else {
-            Write-Host "Failed to set permissions for $path. Exit code: $($result.ExitCode)" -ForegroundColor Red
-            return $false
+            Write-ConfigLog "[WhatIf] Would set ICACLS permissions for $user on $path" "Info"
+            return $true
         }
     }
     catch {
-        Write-Host "Error setting permissions for $path : $_" -ForegroundColor Red
+        Write-Host "Error setting permissions for $path : $($_.Exception.Message)" -ForegroundColor Red
         return $false
     }
 }
@@ -246,17 +263,23 @@ try {
     # Create environment
     Write-ConfigLog "Creating environment from $envYamlPath..."
     $envPath = Join-Path $APP_ROOT "env"
-    & $condaPath
-    conda env create -f $envYamlPath -p $envPath
-    if ($LASTEXITCODE -eq 0) {
-        Write-ConfigLog "Environment created successfully" "Success"
-        $success = $true
+    if ($PSCmdlet.ShouldProcess($envPath, "Create Conda environment")) {
+        & $condaPath
+        conda env create -f $envYamlPath -p $envPath
+        if ($LASTEXITCODE -eq 0) {
+            Write-ConfigLog "Environment created successfully" "Success"
+            $success = $true
+        } else {
+            Write-ConfigLog "Failed to create environment" "Error"
+        }
     } else {
-        Write-ConfigLog "Failed to create environment" "Error"
+        Write-ConfigLog "[WhatIf] Would create Conda environment at: $envPath" "Info"
+        Write-ConfigLog "[WhatIf] Would use environment.yml from: $envYamlPath" "Info"
+        $success = $true
     }
 }
 catch {
-    Write-ConfigLog "Error creating environment: $_" "Error"
+    Write-ConfigLog "Error creating environment: $($_.Exception.Message)" "Error"
 }
 
 # Verify permissions after creation

@@ -1,3 +1,6 @@
+[CmdletBinding(SupportsShouldProcess=$true)]
+param()
+
 # Get the root directory (one level up from scripts)
 $rootDir = Split-Path -Parent $PSScriptRoot
 
@@ -11,22 +14,38 @@ if (-not (Test-Path $configPath)) {
 
 Write-ConfigLog "Restarting IIS and Application Pool..."
 
-# Restart IIS
-Write-ConfigLog "Stopping IIS..."
-iisreset /stop
+# Function to execute commands with WhatIf support
+function Invoke-WithWhatIf {
+    param(
+        [string]$Command,
+        [string]$Description
+    )
+    
+    if ($PSCmdlet.ShouldProcess($Description, $Command)) {
+        Write-ConfigLog $Description
+        Invoke-Expression $Command
+    } else {
+        Write-ConfigLog "[WhatIf] Would execute: $Command" "Info"
+    }
+}
 
-Write-ConfigLog "Stopping Application Pool..."
+# Restart IIS
+Invoke-WithWhatIf -Command "iisreset /stop" -Description "Stopping IIS..."
+
+# Stop Application Pool
 Import-Module WebAdministration
-Stop-WebAppPool -Name $APP_NAME
+Invoke-WithWhatIf -Command "Stop-WebAppPool -Name '$APP_NAME'" -Description "Stopping Application Pool..."
 
 Write-ConfigLog "Waiting for 5 seconds..."
-Start-Sleep -Seconds 5
+if (-not $PSCmdlet.ShouldProcess("Wait", "Wait for 5 seconds")) {
+    Start-Sleep -Seconds 5
+}
 
-Write-ConfigLog "Starting Application Pool..."
-Start-WebAppPool -Name $APP_NAME
+# Start Application Pool
+Invoke-WithWhatIf -Command "Start-WebAppPool -Name '$APP_NAME'" -Description "Starting Application Pool..."
 
-Write-ConfigLog "Starting IIS..."
-iisreset /start
+# Start IIS
+Invoke-WithWhatIf -Command "iisreset /start" -Description "Starting IIS..."
 
 Write-ConfigLog "IIS and Application Pool have been restarted successfully"
 
