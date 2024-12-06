@@ -1,5 +1,5 @@
 @echo off
-echo Installing IIS Components...
+echo Checking IIS Components...
 
 REM Check for administrator privileges
 net session >nul 2>&1
@@ -10,27 +10,44 @@ if %errorLevel% neq 0 (
     exit /b 1
 )
 
+REM Function to check and install IIS feature
+:CheckAndInstallFeature
+set "feature=%~1"
+set "description=%~2"
+echo Checking %description%...
+dism /online /get-featureinfo /featurename:%feature% | find "State : Enabled" > nul
+if %errorLevel% equ 0 (
+    echo %description% is already installed
+) else (
+    echo Installing %description%...
+    dism /online /enable-feature /featurename:%feature% /quiet /norestart
+    if %errorLevel% neq 0 (
+        echo Failed to install %description%
+        exit /b 1
+    )
+)
+exit /b 0
+
 REM Install IIS components using DISM
-echo Installing IIS Web Server Role and basic features...
-dism /online /enable-feature /featurename:IIS-WebServerRole /quiet /norestart
-dism /online /enable-feature /featurename:IIS-WebServer /quiet /norestart
-dism /online /enable-feature /featurename:IIS-CommonHttpFeatures /quiet /norestart
-dism /online /enable-feature /featurename:IIS-StaticContent /quiet /norestart
-dism /online /enable-feature /featurename:IIS-DefaultDocument /quiet /norestart
-dism /online /enable-feature /featurename:IIS-DirectoryBrowsing /quiet /norestart
-dism /online /enable-feature /featurename:IIS-HttpErrors /quiet /norestart
+echo Checking and installing IIS components...
 
-echo Installing CGI and ISAPI features...
-dism /online /enable-feature /featurename:IIS-ApplicationDevelopment /quiet /norestart
-dism /online /enable-feature /featurename:IIS-CGI /quiet /norestart
-dism /online /enable-feature /featurename:IIS-ISAPIExtensions /quiet /norestart
-dism /online /enable-feature /featurename:IIS-ISAPIFilter /quiet /norestart
-
-REM Specifically enable FastCGI
-echo Installing FastCGI...
-dism /online /enable-feature /featurename:IIS-CGI /quiet /norestart
+call :CheckAndInstallFeature IIS-WebServerRole "IIS Web Server Role"
+call :CheckAndInstallFeature IIS-WebServer "IIS Web Server"
+call :CheckAndInstallFeature IIS-CommonHttpFeatures "IIS Common HTTP Features"
+call :CheckAndInstallFeature IIS-StaticContent "IIS Static Content"
+call :CheckAndInstallFeature IIS-DefaultDocument "IIS Default Document"
+call :CheckAndInstallFeature IIS-DirectoryBrowsing "IIS Directory Browsing"
+call :CheckAndInstallFeature IIS-HttpErrors "IIS HTTP Errors"
+call :CheckAndInstallFeature IIS-HttpLogging "IIS HTTP Logging"
+call :CheckAndInstallFeature IIS-LoggingLibraries "IIS Logging Libraries"
+call :CheckAndInstallFeature IIS-RequestMonitor "IIS Request Monitor"
+call :CheckAndInstallFeature IIS-HttpTracing "IIS HTTP Tracing"
+call :CheckAndInstallFeature IIS-ISAPIExtensions "IIS ISAPI Extensions"
+call :CheckAndInstallFeature IIS-ISAPIFilter "IIS ISAPI Filters"
+call :CheckAndInstallFeature IIS-BasicAuthentication "IIS Basic Authentication"
+call :CheckAndInstallFeature IIS-WindowsAuthentication "IIS Windows Authentication"
+call :CheckAndInstallFeature IIS-CGI "IIS CGI"
 
 echo.
-echo Installation complete. Please restart IIS or your computer.
-echo You can use scripts\restart_iis.ps1 to restart IIS.
+echo IIS component installation completed successfully.
 pause

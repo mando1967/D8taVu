@@ -13,11 +13,31 @@ if (-not (Test-Path $configPath)) {
 $installerUrl = "https://download.microsoft.com/download/1/2/8/128E2E22-C1B9-44A4-BE2A-5859ED1D4592/rewrite_amd64_en-US.msi"
 $installerPath = "$env:TEMP\rewrite_amd64_en-US.msi"
 
-Write-ConfigLog "Installing URL Rewrite Module..."
+Write-ConfigLog "Checking URL Rewrite Module status..."
 
-# Check if URL Rewrite Module is already installed
-$rewriteModule = Get-WebModule -Name "UrlRewrite"
-if ($rewriteModule) {
+# Check if URL Rewrite Module is already installed using appcmd
+$isInstalled = $false
+try {
+    $appcmd = "$env:windir\system32\inetsrv\appcmd.exe"
+    if (Test-Path $appcmd) {
+        $modules = & $appcmd list modules
+        if ($modules -match "UrlRewriteModule") {
+            $isInstalled = $true
+        }
+    }
+} catch {
+    Write-ConfigLog "Error checking URL Rewrite Module status: $($_.Exception.Message)" "Warning"
+}
+
+# Alternative check using registry
+if (-not $isInstalled) {
+    $regPath = "HKLM:\SOFTWARE\Microsoft\IIS Extensions\URL Rewrite"
+    if (Test-Path $regPath) {
+        $isInstalled = $true
+    }
+}
+
+if ($isInstalled) {
     Write-ConfigLog "URL Rewrite Module is already installed" "Info"
 } else {
     # Download the installer
@@ -42,6 +62,15 @@ if ($rewriteModule) {
         try {
             Start-Process msiexec.exe -ArgumentList "/i `"$installerPath`" /quiet /norestart" -Wait
             Write-ConfigLog "Installation completed successfully" "Success"
+
+            # Verify installation
+            Start-Sleep -Seconds 5  # Give some time for installation to complete
+            $verifyPath = "HKLM:\SOFTWARE\Microsoft\IIS Extensions\URL Rewrite"
+            if (Test-Path $verifyPath) {
+                Write-ConfigLog "URL Rewrite Module installation verified" "Success"
+            } else {
+                Write-ConfigLog "URL Rewrite Module installation could not be verified" "Warning"
+            }
         }
         catch {
             Write-ConfigLog "Error installing URL Rewrite Module: $($_.Exception.Message)" "Error"
@@ -49,15 +78,14 @@ if ($rewriteModule) {
         }
     } else {
         Write-ConfigLog "[WhatIf] Would install URL Rewrite Module using msiexec" "Info"
-        Write-ConfigLog "[WhatIf] Installer path: $installerPath" "Info"
-        Write-ConfigLog "[WhatIf] Arguments: /i /quiet /norestart" "Info"
     }
-    
-    # Clean up
-    if ($PSCmdlet.ShouldProcess($installerPath, "Remove installer")) {
+}
+
+# Clean up installer if it exists
+if (Test-Path $installerPath) {
+    if ($PSCmdlet.ShouldProcess($installerPath, "Delete installer")) {
         Remove-Item $installerPath -Force
-    } else {
-        Write-ConfigLog "[WhatIf] Would remove installer file: $installerPath" "Info"
+        Write-ConfigLog "Cleaned up installer file" "Info"
     }
 }
 
