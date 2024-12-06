@@ -52,6 +52,11 @@
         #plot-container {
             margin-top: 20px;
         }
+        .nav-link.active {
+            font-size: 1.2em !important;
+            color: #ffd700 !important;
+            font-weight: bold;
+        }
         {% endblock %}
     </style>
 </head>
@@ -66,10 +71,10 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav">
                     <li class="nav-item">
-                        <a class="nav-link" href="/D8TAVu/">Stock Data</a>
+                        <a class="nav-link {% if request.path == '/D8TAVu/' %}active{% endif %}" href="/D8TAVu/">Stock Data</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/D8TAVu/share">File Browser</a>
+                        <a class="nav-link {% if '/share' in request.path %}active{% endif %}" href="/D8TAVu/share">File Browser</a>
                     </li>
                 </ul>
             </div>
