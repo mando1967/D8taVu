@@ -28,7 +28,7 @@ if "%whatif%"=="1" (
 
 REM Check for administrator privileges
 net session >nul 2>&1
-if %errorLevel% neq 0 (
+if !errorLevel! neq 0 (
     echo This script requires administrator privileges.
     echo Please run this script as administrator.
     pause
@@ -38,20 +38,20 @@ if %errorLevel% neq 0 (
 REM Function to check and install IIS feature
 :CheckAndInstallFeature
 setlocal
-set "featureName=%~1"
-set "featureDesc=%~2"
+set featureName=%~1
+set featureDesc=%~2
 
 if "%featureName%"=="" goto :eof
 if "%featureDesc%"=="" set "featureDesc=%featureName%"
 
 echo Checking %featureDesc%...
 dism /online /get-featureinfo /featurename:%featureName% | find "State : Enabled" > nul
-if %errorLevel% equ 0 (
+if !errorLevel! equ 0 (
     echo %featureDesc% is already installed
 ) else (
     echo Installing %featureDesc%...
     dism /online /enable-feature /featurename:%featureName% /quiet /norestart
-    if %errorLevel% neq 0 (
+    if !errorLevel! neq 0 (
         echo Failed to install %featureDesc%
         endlocal
         exit /b 1
@@ -63,23 +63,58 @@ goto :eof
 REM Install IIS components using DISM
 echo Checking and installing IIS components...
 
-call :CheckAndInstallFeature "IIS-WebServerRole" "IIS Web Server Role"
-call :CheckAndInstallFeature "IIS-WebServer" "IIS Web Server"
-call :CheckAndInstallFeature "IIS-CommonHttpFeatures" "IIS Common HTTP Features"
-call :CheckAndInstallFeature "IIS-StaticContent" "IIS Static Content"
-call :CheckAndInstallFeature "IIS-DefaultDocument" "IIS Default Document"
-call :CheckAndInstallFeature "IIS-DirectoryBrowsing" "IIS Directory Browsing"
-call :CheckAndInstallFeature "IIS-HttpErrors" "IIS HTTP Errors"
-call :CheckAndInstallFeature "IIS-HttpLogging" "IIS HTTP Logging"
-call :CheckAndInstallFeature "IIS-LoggingLibraries" "IIS Logging Libraries"
-call :CheckAndInstallFeature "IIS-RequestMonitor" "IIS Request Monitor"
-call :CheckAndInstallFeature "IIS-HttpTracing" "IIS HTTP Tracing"
-call :CheckAndInstallFeature "IIS-ISAPIExtensions" "IIS ISAPI Extensions"
-call :CheckAndInstallFeature "IIS-ISAPIFilter" "IIS ISAPI Filters"
-call :CheckAndInstallFeature "IIS-BasicAuthentication" "IIS Basic Authentication"
-call :CheckAndInstallFeature "IIS-WindowsAuthentication" "IIS Windows Authentication"
-call :CheckAndInstallFeature "IIS-CGI" "IIS CGI"
+call :CheckAndInstallFeature IIS-WebServerRole "IIS Web Server Role"
+if !errorLevel! neq 0 goto :error
+
+call :CheckAndInstallFeature IIS-WebServer "IIS Web Server"
+if !errorLevel! neq 0 goto :error
+
+call :CheckAndInstallFeature IIS-CommonHttpFeatures "IIS Common HTTP Features"
+if !errorLevel! neq 0 goto :error
+
+call :CheckAndInstallFeature IIS-StaticContent "IIS Static Content"
+if !errorLevel! neq 0 goto :error
+
+call :CheckAndInstallFeature IIS-DefaultDocument "IIS Default Document"
+if !errorLevel! neq 0 goto :error
+
+call :CheckAndInstallFeature IIS-DirectoryBrowsing "IIS Directory Browsing"
+if !errorLevel! neq 0 goto :error
+
+call :CheckAndInstallFeature IIS-HttpErrors "IIS HTTP Errors"
+if !errorLevel! neq 0 goto :error
+
+call :CheckAndInstallFeature IIS-HttpLogging "IIS HTTP Logging"
+if !errorLevel! neq 0 goto :error
+
+call :CheckAndInstallFeature IIS-LoggingLibraries "IIS Logging Libraries"
+if !errorLevel! neq 0 goto :error
+
+call :CheckAndInstallFeature IIS-RequestMonitor "IIS Request Monitor"
+if !errorLevel! neq 0 goto :error
+
+call :CheckAndInstallFeature IIS-HttpTracing "IIS HTTP Tracing"
+if !errorLevel! neq 0 goto :error
+
+call :CheckAndInstallFeature IIS-ISAPIExtensions "IIS ISAPI Extensions"
+if !errorLevel! neq 0 goto :error
+
+call :CheckAndInstallFeature IIS-ISAPIFilter "IIS ISAPI Filters"
+if !errorLevel! neq 0 goto :error
+
+call :CheckAndInstallFeature IIS-BasicAuthentication "IIS Basic Authentication"
+if !errorLevel! neq 0 goto :error
+
+call :CheckAndInstallFeature IIS-WindowsAuthentication "IIS Windows Authentication"
+if !errorLevel! neq 0 goto :error
+
+call :CheckAndInstallFeature IIS-CGI "IIS CGI"
+if !errorLevel! neq 0 goto :error
 
 echo.
 echo IIS component installation completed successfully.
 exit /b 0
+
+:error
+echo An error occurred during IIS component installation.
+exit /b 1
