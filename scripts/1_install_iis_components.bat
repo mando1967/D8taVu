@@ -31,84 +31,81 @@ net session >nul 2>&1
 if !errorLevel! neq 0 (
     echo This script requires administrator privileges.
     echo Please run this script as administrator.
-    pause
     exit /b 1
 )
-
-REM Function to check and install IIS feature
-:CheckAndInstallFeature
-setlocal
-set featureName=%~1
-set featureDesc=%~2
-
-if "%featureName%"=="" goto :eof
-if "%featureDesc%"=="" set "featureDesc=%featureName%"
-
-echo Checking %featureDesc%...
-dism /online /get-featureinfo /featurename:%featureName% | find "State : Enabled" > nul
-if !errorLevel! equ 0 (
-    echo %featureDesc% is already installed
-) else (
-    echo Installing %featureDesc%...
-    dism /online /enable-feature /featurename:%featureName% /quiet /norestart
-    if !errorLevel! neq 0 (
-        echo Failed to install %featureDesc%
-        endlocal
-        exit /b 1
-    )
-)
-endlocal
-goto :eof
 
 REM Install IIS components using DISM
 echo Checking and installing IIS components...
 
-call :CheckAndInstallFeature IIS-WebServerRole "IIS Web Server Role"
+REM Helper function to check and install a feature
+:install_feature
+set feature_name=%~1
+set feature_desc=%~2
+if "%feature_desc%"=="" set feature_desc=%feature_name%
+
+echo Checking %feature_desc%...
+%SYSTEMROOT%\system32\dism.exe /online /get-featureinfo /featurename:%feature_name% | find "State : Enabled" >nul 2>&1
+if !errorLevel! equ 0 (
+    echo %feature_desc% is already installed
+    goto :eof
+)
+
+echo Installing %feature_desc%...
+%SYSTEMROOT%\system32\dism.exe /online /enable-feature /featurename:%feature_name% /all /quiet /norestart
+if !errorLevel! neq 0 (
+    echo Failed to install %feature_desc%
+    exit /b 1
+)
+echo Successfully installed %feature_desc%
+goto :eof
+
+REM Install each feature
+call :install_feature IIS-WebServerRole "IIS Web Server Role"
 if !errorLevel! neq 0 goto :error
 
-call :CheckAndInstallFeature IIS-WebServer "IIS Web Server"
+call :install_feature IIS-WebServer "IIS Web Server"
 if !errorLevel! neq 0 goto :error
 
-call :CheckAndInstallFeature IIS-CommonHttpFeatures "IIS Common HTTP Features"
+call :install_feature IIS-CommonHttpFeatures "IIS Common HTTP Features"
 if !errorLevel! neq 0 goto :error
 
-call :CheckAndInstallFeature IIS-StaticContent "IIS Static Content"
+call :install_feature IIS-StaticContent "IIS Static Content"
 if !errorLevel! neq 0 goto :error
 
-call :CheckAndInstallFeature IIS-DefaultDocument "IIS Default Document"
+call :install_feature IIS-DefaultDocument "IIS Default Document"
 if !errorLevel! neq 0 goto :error
 
-call :CheckAndInstallFeature IIS-DirectoryBrowsing "IIS Directory Browsing"
+call :install_feature IIS-DirectoryBrowsing "IIS Directory Browsing"
 if !errorLevel! neq 0 goto :error
 
-call :CheckAndInstallFeature IIS-HttpErrors "IIS HTTP Errors"
+call :install_feature IIS-HttpErrors "IIS HTTP Errors"
 if !errorLevel! neq 0 goto :error
 
-call :CheckAndInstallFeature IIS-HttpLogging "IIS HTTP Logging"
+call :install_feature IIS-HttpLogging "IIS HTTP Logging"
 if !errorLevel! neq 0 goto :error
 
-call :CheckAndInstallFeature IIS-LoggingLibraries "IIS Logging Libraries"
+call :install_feature IIS-LoggingLibraries "IIS Logging Libraries"
 if !errorLevel! neq 0 goto :error
 
-call :CheckAndInstallFeature IIS-RequestMonitor "IIS Request Monitor"
+call :install_feature IIS-RequestMonitor "IIS Request Monitor"
 if !errorLevel! neq 0 goto :error
 
-call :CheckAndInstallFeature IIS-HttpTracing "IIS HTTP Tracing"
+call :install_feature IIS-HttpTracing "IIS HTTP Tracing"
 if !errorLevel! neq 0 goto :error
 
-call :CheckAndInstallFeature IIS-ISAPIExtensions "IIS ISAPI Extensions"
+call :install_feature IIS-ISAPIExtensions "IIS ISAPI Extensions"
 if !errorLevel! neq 0 goto :error
 
-call :CheckAndInstallFeature IIS-ISAPIFilter "IIS ISAPI Filters"
+call :install_feature IIS-ISAPIFilter "IIS ISAPI Filters"
 if !errorLevel! neq 0 goto :error
 
-call :CheckAndInstallFeature IIS-BasicAuthentication "IIS Basic Authentication"
+call :install_feature IIS-BasicAuthentication "IIS Basic Authentication"
 if !errorLevel! neq 0 goto :error
 
-call :CheckAndInstallFeature IIS-WindowsAuthentication "IIS Windows Authentication"
+call :install_feature IIS-WindowsAuthentication "IIS Windows Authentication"
 if !errorLevel! neq 0 goto :error
 
-call :CheckAndInstallFeature IIS-CGI "IIS CGI"
+call :install_feature IIS-CGI "IIS CGI"
 if !errorLevel! neq 0 goto :error
 
 echo.
