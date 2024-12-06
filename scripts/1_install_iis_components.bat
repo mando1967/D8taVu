@@ -37,42 +37,49 @@ if %errorLevel% neq 0 (
 
 REM Function to check and install IIS feature
 :CheckAndInstallFeature
-set "feature=%~1"
-set "description=%~2"
-echo Checking %description%...
-dism /online /get-featureinfo /featurename:%feature% | find "State : Enabled" > nul
+setlocal
+set "featureName=%~1"
+set "featureDesc=%~2"
+
+if "%featureName%"=="" goto :eof
+if "%featureDesc%"=="" set "featureDesc=%featureName%"
+
+echo Checking %featureDesc%...
+dism /online /get-featureinfo /featurename:%featureName% | find "State : Enabled" > nul
 if %errorLevel% equ 0 (
-    echo %description% is already installed
+    echo %featureDesc% is already installed
 ) else (
-    echo Installing %description%...
-    dism /online /enable-feature /featurename:%feature% /quiet /norestart
+    echo Installing %featureDesc%...
+    dism /online /enable-feature /featurename:%featureName% /quiet /norestart
     if %errorLevel% neq 0 (
-        echo Failed to install %description%
+        echo Failed to install %featureDesc%
+        endlocal
         exit /b 1
     )
 )
-exit /b 0
+endlocal
+goto :eof
 
 REM Install IIS components using DISM
 echo Checking and installing IIS components...
 
-call :CheckAndInstallFeature IIS-WebServerRole "IIS Web Server Role"
-call :CheckAndInstallFeature IIS-WebServer "IIS Web Server"
-call :CheckAndInstallFeature IIS-CommonHttpFeatures "IIS Common HTTP Features"
-call :CheckAndInstallFeature IIS-StaticContent "IIS Static Content"
-call :CheckAndInstallFeature IIS-DefaultDocument "IIS Default Document"
-call :CheckAndInstallFeature IIS-DirectoryBrowsing "IIS Directory Browsing"
-call :CheckAndInstallFeature IIS-HttpErrors "IIS HTTP Errors"
-call :CheckAndInstallFeature IIS-HttpLogging "IIS HTTP Logging"
-call :CheckAndInstallFeature IIS-LoggingLibraries "IIS Logging Libraries"
-call :CheckAndInstallFeature IIS-RequestMonitor "IIS Request Monitor"
-call :CheckAndInstallFeature IIS-HttpTracing "IIS HTTP Tracing"
-call :CheckAndInstallFeature IIS-ISAPIExtensions "IIS ISAPI Extensions"
-call :CheckAndInstallFeature IIS-ISAPIFilter "IIS ISAPI Filters"
-call :CheckAndInstallFeature IIS-BasicAuthentication "IIS Basic Authentication"
-call :CheckAndInstallFeature IIS-WindowsAuthentication "IIS Windows Authentication"
-call :CheckAndInstallFeature IIS-CGI "IIS CGI"
+call :CheckAndInstallFeature "IIS-WebServerRole" "IIS Web Server Role"
+call :CheckAndInstallFeature "IIS-WebServer" "IIS Web Server"
+call :CheckAndInstallFeature "IIS-CommonHttpFeatures" "IIS Common HTTP Features"
+call :CheckAndInstallFeature "IIS-StaticContent" "IIS Static Content"
+call :CheckAndInstallFeature "IIS-DefaultDocument" "IIS Default Document"
+call :CheckAndInstallFeature "IIS-DirectoryBrowsing" "IIS Directory Browsing"
+call :CheckAndInstallFeature "IIS-HttpErrors" "IIS HTTP Errors"
+call :CheckAndInstallFeature "IIS-HttpLogging" "IIS HTTP Logging"
+call :CheckAndInstallFeature "IIS-LoggingLibraries" "IIS Logging Libraries"
+call :CheckAndInstallFeature "IIS-RequestMonitor" "IIS Request Monitor"
+call :CheckAndInstallFeature "IIS-HttpTracing" "IIS HTTP Tracing"
+call :CheckAndInstallFeature "IIS-ISAPIExtensions" "IIS ISAPI Extensions"
+call :CheckAndInstallFeature "IIS-ISAPIFilter" "IIS ISAPI Filters"
+call :CheckAndInstallFeature "IIS-BasicAuthentication" "IIS Basic Authentication"
+call :CheckAndInstallFeature "IIS-WindowsAuthentication" "IIS Windows Authentication"
+call :CheckAndInstallFeature "IIS-CGI" "IIS CGI"
 
 echo.
 echo IIS component installation completed successfully.
-pause
+exit /b 0
