@@ -1,5 +1,30 @@
 @echo off
-echo Checking IIS Components...
+setlocal EnableDelayedExpansion
+
+REM Get arguments
+set "whatif=%~1"
+set "description=%~2"
+
+REM Echo the description if provided
+if not "%description%"=="" (
+    echo %description%
+)
+
+REM Check for WhatIf mode
+if "%whatif%"=="1" (
+    echo [WhatIf] Would install IIS components
+    echo [WhatIf] Components to install:
+    echo [WhatIf] - IIS-WebServerRole
+    echo [WhatIf] - IIS-WebServer
+    echo [WhatIf] - IIS-CommonHttpFeatures
+    echo [WhatIf] - IIS-StaticContent
+    echo [WhatIf] - IIS-DefaultDocument
+    echo [WhatIf] - IIS-DirectoryBrowsing
+    echo [WhatIf] - IIS-HttpErrors
+    echo [WhatIf] - IIS-ApplicationDevelopment
+    echo [WhatIf] - IIS-CGI
+    exit /b 0
+)
 
 REM Check for administrator privileges
 net session >nul 2>&1
