@@ -83,12 +83,12 @@ function Invoke-SetupScript {
             }
             ".bat" {
                 if ($PSCmdlet.ShouldProcess($Path, $Description)) {
-                    $process = Start-Process -FilePath $Path -Wait -PassThru -NoNewWindow
-                    if ($process.ExitCode -ne 0) { $errorOccurred = $true }
+                    $whatIfArg = "0"  # Not in WhatIf mode
                 } else {
-                    Write-ConfigLog "[WhatIf] Would execute batch script: $Path" "Info"
-                    Write-ConfigLog "[WhatIf] Description: $Description" "Info"
+                    $whatIfArg = "1"  # WhatIf mode
                 }
+                $process = Start-Process -FilePath $Path -ArgumentList "$whatIfArg", "`"$Description`"" -Wait -PassThru -NoNewWindow
+                if ($process.ExitCode -ne 0) { $errorOccurred = $true }
             }
             default {
                 $errorMessage = "Unsupported script type: $extension"

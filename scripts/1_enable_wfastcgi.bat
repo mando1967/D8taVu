@@ -1,4 +1,21 @@
 @echo off
+setlocal EnableDelayedExpansion
+
+REM Get arguments
+set "whatif=%~1"
+set "description=%~2"
+
+REM Echo the description if provided
+if not "%description%"=="" (
+    echo %description%
+)
+
+REM Check for WhatIf mode
+if "%whatif%"=="1" (
+    echo [WhatIf] Would enable wfastcgi
+    exit /b 0
+)
+
 echo Checking wfastcgi status...
 
 REM Check for administrator privileges
