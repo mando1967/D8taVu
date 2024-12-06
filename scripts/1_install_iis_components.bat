@@ -37,26 +37,57 @@ if !errorLevel! neq 0 (
 REM Install IIS components using DISM
 echo Checking and installing IIS components...
 
+REM Debug: Show DISM version
+echo DISM Version:
+%SYSTEMROOT%\system32\dism.exe /?
+echo.
+
 REM Helper function to check and install a feature
 :install_feature
-set feature_name=%~1
-set feature_desc=%~2
-if "%feature_desc%"=="" set feature_desc=%feature_name%
+setlocal
+set "feature_name=%~1"
+set "feature_desc=%~2"
+if "%feature_desc%"=="" set "feature_desc=%feature_name%"
 
-echo Checking %feature_desc%...
-%SYSTEMROOT%\system32\dism.exe /online /get-featureinfo /featurename:%feature_name% | find "State : Enabled" >nul 2>&1
-if !errorLevel! equ 0 (
-    echo %feature_desc% is already installed
-    goto :eof
+echo.
+echo ========================================
+echo Checking feature: [%feature_name%]
+echo Description: %feature_desc%
+echo ========================================
+
+REM Debug: Show exact command being executed
+set "check_cmd=%SYSTEMROOT%\system32\dism.exe /online /get-featureinfo /featurename:%feature_name%"
+echo Executing: %check_cmd%
+%check_cmd%
+set check_error=!errorLevel!
+echo Check command exit code: !check_error!
+
+if !check_error! equ 0 (
+    echo Feature exists, checking if enabled...
+    %check_cmd% | find "State : Enabled" >nul
+    if !errorLevel! equ 0 (
+        echo Feature is already enabled
+        endlocal
+        goto :eof
+    )
 )
 
-echo Installing %feature_desc%...
-%SYSTEMROOT%\system32\dism.exe /online /enable-feature /featurename:%feature_name% /all /quiet /norestart
-if !errorLevel! neq 0 (
+echo Installing feature...
+set "install_cmd=%SYSTEMROOT%\system32\dism.exe /online /enable-feature /featurename:%feature_name% /all /quiet /norestart"
+echo Executing: %install_cmd%
+%install_cmd%
+set install_error=!errorLevel!
+echo Install command exit code: !install_error!
+
+if !install_error! neq 0 (
     echo Failed to install %feature_desc%
+    echo Error code: !install_error!
+    endlocal
     exit /b 1
 )
+
 echo Successfully installed %feature_desc%
+endlocal
 goto :eof
 
 REM Install each feature
