@@ -3,6 +3,7 @@ setlocal EnableDelayedExpansion
 
 REM Get arguments
 set "whatif=%~1"
+if "%whatif%"=="" set "whatif=0"
 set "description=%~2"
 
 REM Echo the description if provided
@@ -44,9 +45,16 @@ echo.
 
 REM Helper function to check and install a feature
 :install_feature
-setlocal
+setlocal EnableDelayedExpansion
 set "feature_name=%~1"
 set "feature_desc=%~2"
+
+REM Validate input parameters
+if "%feature_name%"=="" (
+    echo Error: Feature name cannot be empty
+    exit /b 1
+)
+
 if "%feature_desc%"=="" set "feature_desc=%feature_name%"
 
 echo.
@@ -68,7 +76,7 @@ if !check_error! equ 0 (
     if !errorLevel! equ 0 (
         echo Feature is already enabled
         endlocal
-        goto :eof
+        exit /b 0
     )
 )
 
@@ -88,7 +96,7 @@ if !install_error! neq 0 (
 
 echo Successfully installed %feature_desc%
 endlocal
-goto :eof
+exit /b 0
 
 REM Install each feature
 call :install_feature IIS-WebServerRole "IIS Web Server Role"
