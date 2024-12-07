@@ -3,7 +3,6 @@ setlocal EnableDelayedExpansion
 
 REM Get arguments
 set "whatif=%~1"
-if "%whatif%"=="" set "whatif=0"
 set "description=%~2"
 
 REM Echo the description if provided
@@ -38,10 +37,58 @@ if !errorLevel! neq 0 (
 REM Install IIS components using DISM
 echo Checking and installing IIS components...
 
-REM Debug: Show DISM version
-echo DISM Version:
-%SYSTEMROOT%\system32\dism.exe /?
+REM Install each feature
+call :install_feature IIS-WebServerRole "IIS Web Server Role"
+if !errorLevel! neq 0 goto :exit /b 1
+
+call :install_feature IIS-WebServer "IIS Web Server"
+if !errorLevel! neq 0 goto :exit /b 1
+
+call :install_feature IIS-CommonHttpFeatures "IIS Common HTTP Features"
+if !errorLevel! neq 0 goto :exit /b 1
+
+call :install_feature IIS-StaticContent "IIS Static Content"
+if !errorLevel! neq 0 goto :exit /b 1
+
+call :install_feature IIS-DefaultDocument "IIS Default Document"
+if !errorLevel! neq 0 goto :exit /b 1
+
+call :install_feature IIS-DirectoryBrowsing "IIS Directory Browsing"
+if !errorLevel! neq 0 goto :exit /b 1
+
+call :install_feature IIS-HttpErrors "IIS HTTP Errors"
+if !errorLevel! neq 0 goto :exit /b 1
+
+call :install_feature IIS-HttpLogging "IIS HTTP Logging"
+if !errorLevel! neq 0 goto :exit /b 1
+
+call :install_feature IIS-LoggingLibraries "IIS Logging Libraries"
+if !errorLevel! neq 0 goto :exit /b 1
+
+call :install_feature IIS-RequestMonitor "IIS Request Monitor"
+if !errorLevel! neq 0 goto :exit /b 1
+
+call :install_feature IIS-HttpTracing "IIS HTTP Tracing"
+if !errorLevel! neq 0 goto :exit /b 1
+
+call :install_feature IIS-ISAPIExtensions "IIS ISAPI Extensions"
+if !errorLevel! neq 0 goto :exit /b 1
+
+call :install_feature IIS-ISAPIFilter "IIS ISAPI Filters"
+if !errorLevel! neq 0 goto :exit /b 1
+
+call :install_feature IIS-BasicAuthentication "IIS Basic Authentication"
+if !errorLevel! neq 0 goto :exit /b 1
+
+call :install_feature IIS-WindowsAuthentication "IIS Windows Authentication"
+if !errorLevel! neq 0 goto :exit /b 1
+
+call :install_feature IIS-CGI "IIS CGI"
+if !errorLevel! neq 0 goto :exit /b 1
+
 echo.
+echo IIS component installation completed successfully.
+exit /b 0
 
 REM Helper function to check and install a feature
 :install_feature
@@ -98,59 +145,4 @@ echo Successfully installed %feature_desc%
 endlocal
 exit /b 0
 
-REM Install each feature
-call :install_feature IIS-WebServerRole "IIS Web Server Role"
-if !errorLevel! neq 0 goto :error
 
-call :install_feature IIS-WebServer "IIS Web Server"
-if !errorLevel! neq 0 goto :error
-
-call :install_feature IIS-CommonHttpFeatures "IIS Common HTTP Features"
-if !errorLevel! neq 0 goto :error
-
-call :install_feature IIS-StaticContent "IIS Static Content"
-if !errorLevel! neq 0 goto :error
-
-call :install_feature IIS-DefaultDocument "IIS Default Document"
-if !errorLevel! neq 0 goto :error
-
-call :install_feature IIS-DirectoryBrowsing "IIS Directory Browsing"
-if !errorLevel! neq 0 goto :error
-
-call :install_feature IIS-HttpErrors "IIS HTTP Errors"
-if !errorLevel! neq 0 goto :error
-
-call :install_feature IIS-HttpLogging "IIS HTTP Logging"
-if !errorLevel! neq 0 goto :error
-
-call :install_feature IIS-LoggingLibraries "IIS Logging Libraries"
-if !errorLevel! neq 0 goto :error
-
-call :install_feature IIS-RequestMonitor "IIS Request Monitor"
-if !errorLevel! neq 0 goto :error
-
-call :install_feature IIS-HttpTracing "IIS HTTP Tracing"
-if !errorLevel! neq 0 goto :error
-
-call :install_feature IIS-ISAPIExtensions "IIS ISAPI Extensions"
-if !errorLevel! neq 0 goto :error
-
-call :install_feature IIS-ISAPIFilter "IIS ISAPI Filters"
-if !errorLevel! neq 0 goto :error
-
-call :install_feature IIS-BasicAuthentication "IIS Basic Authentication"
-if !errorLevel! neq 0 goto :error
-
-call :install_feature IIS-WindowsAuthentication "IIS Windows Authentication"
-if !errorLevel! neq 0 goto :error
-
-call :install_feature IIS-CGI "IIS CGI"
-if !errorLevel! neq 0 goto :error
-
-echo.
-echo IIS component installation completed successfully.
-exit /b 0
-
-:error
-echo An error occurred during IIS component installation.
-exit /b 1
