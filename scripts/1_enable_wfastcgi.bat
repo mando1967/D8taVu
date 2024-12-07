@@ -23,7 +23,6 @@ net session >nul 2>&1
 if %errorLevel% neq 0 (
     echo This script requires administrator privileges.
     echo Please run this script as administrator.
-    pause
     exit /b 1
 )
 
@@ -51,9 +50,9 @@ REM Activate the conda environment
 echo Activating conda environment...
 call "%CONDA_PATH%\Scripts\activate.bat" %APP_NAME%
 
-REM Enable wfastcgi
+REM Enable wfastcgi using python -m
 echo Enabling wfastcgi...
-wfastcgi-enable
+python -m wfastcgi-enable
 
 REM Verify installation
 %windir%\system32\inetsrv\appcmd list module /name:wfastcgi > nul 2>&1
